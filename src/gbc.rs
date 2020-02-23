@@ -14,7 +14,13 @@ pub struct GBC {
 
 impl GBC {
     pub fn new(rom_file: &String) -> Self {
-        let mem = Rc::new(Memory::new(fs::read(rom_file).unwrap()));
+        let mut rom = fs::read(rom_file).unwrap();
+        let boot_rom = fs::read("DMG_ROM.bin").unwrap();
+        unsafe {
+            std::ptr::copy(boot_rom.as_ptr(), rom.as_mut_ptr(), boot_rom.len());
+        }
+
+        let mem = Rc::new(Memory::new(rom));
         GBC {
             mem: Rc::clone(&mem),
             cpu: CPU::new(Rc::clone(&mem)),
