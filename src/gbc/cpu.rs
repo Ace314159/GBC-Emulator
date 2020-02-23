@@ -1,6 +1,5 @@
 use super::Memory;
 
-use std::rc::Rc;
 
 const FLAG_Z: u8 = 0x80;
 const FLAG_N: u8 = 0x40;
@@ -19,7 +18,6 @@ pub struct CPU {
     SP: u16,
     PC: u16,
 
-    mem: Rc<Memory>,
 }
 
 impl CPU {
@@ -39,7 +37,7 @@ impl CPU {
         }
     }
 
-    pub fn emulateInstr(&self) {
+    pub fn emulateInstr(&mut self, mem: &Memory) {
 
     }
 
