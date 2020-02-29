@@ -25,6 +25,6 @@ impl GBC {
     }
 
     pub fn emulate(&mut self) {
-        self.cpu.emulateInstr(&self.mem);
+        self.cpu.emulate_instr(&mut self.mem);
     }
 }

@@ -4,7 +4,7 @@ use gbc::GBC;
 
 fn main() {
     std::env::set_current_dir("ROMs").unwrap();
-    let gbc = GBC::new(&"Tetris.gb".to_string());
+    let mut gbc = GBC::new(&"cpu_instrs/01-special.gb".to_string());
     loop {
         gbc.emulate();
     }
