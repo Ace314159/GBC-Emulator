@@ -40,7 +40,7 @@ impl CPU {
         
         // ALU Operation Macros
         macro_rules! CP { ($operand:expr) => { 
-            { let old_a = self.regs.A; self.ADD(!$operand); self.regs.A = old_a; }
+            { let old_a = self.regs.A; self.ADD((!$operand).wrapping_add(1)); self.regs.A = old_a; }
         }}
         macro_rules! INC_DEC { ($reg:ident, $op:ident) => { {
             let result = self.regs.$reg.$op(1);
@@ -205,24 +205,24 @@ impl CPU {
             0x8E => self.ADC(self.read_byte(mmu, get_reg16!(H, L))),
             0xCE => { let operand = self.read_next_byte(mmu); self.ADC(operand); },
             // SUB A, n
-            0x97 => self.ADD(!self.regs.A),
-            0x90 => self.ADD(!self.regs.B),
-            0x91 => self.ADD(!self.regs.C),
-            0x92 => self.ADD(!self.regs.D),
-            0x93 => self.ADD(!self.regs.E),
-            0x94 => self.ADD(!self.regs.H),
-            0x95 => self.ADD(!self.regs.L),
-            0x96 => self.ADD(!self.read_byte(mmu, get_reg16!(H, L))),
-            0xD6 => { let operand = self.read_next_byte(mmu); self.ADD(!operand); },
+            0x97 => self.ADD(!self.regs.A.wrapping_add(1)),
+            0x90 => self.ADD(!self.regs.B.wrapping_add(1)),
+            0x91 => self.ADD(!self.regs.C.wrapping_add(1)),
+            0x92 => self.ADD(!self.regs.D.wrapping_add(1)),
+            0x93 => self.ADD(!self.regs.E.wrapping_add(1)),
+            0x94 => self.ADD(!self.regs.H.wrapping_add(1)),
+            0x95 => self.ADD(!self.regs.L.wrapping_add(1)),
+            0x96 => self.ADD(!self.read_byte(mmu, get_reg16!(H, L)).wrapping_add(1)),
+            0xD6 => { let operand = self.read_next_byte(mmu); self.ADD(!operand.wrapping_add(1)); },
             // SBC A, n
-            0x9F => self.ADC(!self.regs.A),
-            0x98 => self.ADC(!self.regs.B),
-            0x99 => self.ADC(!self.regs.C),
-            0x9A => self.ADC(!self.regs.D),
-            0x9B => self.ADC(!self.regs.E),
-            0x9C => self.ADC(!self.regs.H),
-            0x9D => self.ADC(!self.regs.L),
-            0x9E => self.ADC(!self.read_byte(mmu, get_reg16!(H, L))),
+            0x9F => self.ADC(!self.regs.A.wrapping_add(1)),
+            0x98 => self.ADC(!self.regs.B.wrapping_add(1)),
+            0x99 => self.ADC(!self.regs.C.wrapping_add(1)),
+            0x9A => self.ADC(!self.regs.D.wrapping_add(1)),
+            0x9B => self.ADC(!self.regs.E.wrapping_add(1)),
+            0x9C => self.ADC(!self.regs.H.wrapping_add(1)),
+            0x9D => self.ADC(!self.regs.L.wrapping_add(1)),
+            0x9E => self.ADC(!self.read_byte(mmu, get_reg16!(H, L)).wrapping_add(1)),
             // AND A, n
             0xA7 => { a_op!(&, self.regs.A); flags!(self.regs.A == 0, false, true, false); }
             0xA0 => { a_op!(&, self.regs.B); flags!(self.regs.A == 0, false, true, false); }
@@ -262,7 +262,7 @@ impl CPU {
             0xBC => CP!(self.regs.H),
             0xBD => CP!(self.regs.L),
             0xBE => CP!(self.read_byte(mmu, get_reg16!(H, L))),
-            0xFE => { let operand = self.read_next_byte(mmu); CP!(!operand); },
+            0xFE => { let operand = self.read_next_byte(mmu); CP!(operand); },
             // INC A, n
             0x3C => INC_DEC!(A, wrapping_add),
             0x04 => INC_DEC!(B, wrapping_add),
@@ -699,7 +699,7 @@ impl CPU {
     // Operations
     #[inline]
     fn ADD(&mut self, operand: u8) {
-        let result: u16 = (self.regs.A as u16).wrapping_add(operand as u16);
+        let result: u16 = (self.regs.A as u16).wrapping_add(operand as i8 as u16);
         
         self.regs.changeFlag(result == 0, Flag::Z);
         self.regs.clearFlag(Flag::N);
@@ -712,7 +712,7 @@ impl CPU {
     #[inline]
     fn ADC(&mut self, operand: u8) {
         let C: u8 = self.regs.F >> 4;
-        let result: u16 = (self.regs.A as u16).wrapping_add(operand as u16).wrapping_add(C as u16);
+        let result: u16 = (self.regs.A as u16).wrapping_add(operand as i8 as u16).wrapping_add(C as u16);
         
         self.regs.changeFlag(result == 0, Flag::Z);
         self.regs.clearFlag(Flag::N);
