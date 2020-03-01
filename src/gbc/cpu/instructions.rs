@@ -202,25 +202,25 @@ impl CPU {
             0x8E => self.ADC(self.read_byte(mmu, get_reg16!(H, L))),
             0xCE => { let operand = self.read_next_byte(mmu); self.ADC(operand); },
             // SUB A, n
-            0x97 => self.ADD(!self.regs.A.wrapping_add(1)),
-            0x90 => self.ADD(!self.regs.B.wrapping_add(1)),
-            0x91 => self.ADD(!self.regs.C.wrapping_add(1)),
-            0x92 => self.ADD(!self.regs.D.wrapping_add(1)),
-            0x93 => self.ADD(!self.regs.E.wrapping_add(1)),
-            0x94 => self.ADD(!self.regs.H.wrapping_add(1)),
-            0x95 => self.ADD(!self.regs.L.wrapping_add(1)),
-            0x96 => self.ADD(!self.read_byte(mmu, get_reg16!(H, L)).wrapping_add(1)),
-            0xD6 => { let operand = self.read_next_byte(mmu); self.ADD(!operand.wrapping_add(1)); },
+            0x97 => self.SUB(self.regs.A),
+            0x90 => self.SUB(self.regs.B),
+            0x91 => self.SUB(self.regs.C),
+            0x92 => self.SUB(self.regs.D),
+            0x93 => self.SUB(self.regs.E),
+            0x94 => self.SUB(self.regs.H),
+            0x95 => self.SUB(self.regs.L),
+            0x96 => self.SUB(self.read_byte(mmu, get_reg16!(H, L))),
+            0xD6 => { let operand = self.read_next_byte(mmu); self.ADD(operand); },
             // SBC A, n
-            0x9F => self.ADC(!self.regs.A.wrapping_add(1)),
-            0x98 => self.ADC(!self.regs.B.wrapping_add(1)),
-            0x99 => self.ADC(!self.regs.C.wrapping_add(1)),
-            0x9A => self.ADC(!self.regs.D.wrapping_add(1)),
-            0x9B => self.ADC(!self.regs.E.wrapping_add(1)),
-            0x9C => self.ADC(!self.regs.H.wrapping_add(1)),
-            0x9D => self.ADC(!self.regs.L.wrapping_add(1)),
-            0x9E => self.ADC(!self.read_byte(mmu, get_reg16!(H, L)).wrapping_add(1)),
-            0xDE => { let operand = self.read_next_byte(mmu); self.ADC(!operand.wrapping_add(1)); },
+            0x9F => self.SBC(self.regs.A),
+            0x98 => self.SBC(self.regs.B),
+            0x99 => self.SBC(self.regs.C),
+            0x9A => self.SBC(self.regs.D),
+            0x9B => self.SBC(self.regs.E),
+            0x9C => self.SBC(self.regs.H),
+            0x9D => self.SBC(self.regs.L),
+            0x9E => self.SBC(self.read_byte(mmu, get_reg16!(H, L))),
+            0xDE => { let operand = self.read_next_byte(mmu); self.SBC(operand); },
             // AND A, n
             0xA7 => { a_op!(&, self.regs.A); flags!(self.regs.A == 0, false, true, false); }
             0xA0 => { a_op!(&, self.regs.B); flags!(self.regs.A == 0, false, true, false); }
@@ -723,9 +723,21 @@ impl CPU {
     }
 
     #[inline]
+    fn SUB(&mut self, operand: u8) {
+        self.ADD((!operand).wrapping_add(1));
+        self.regs.set_flag(Flag::N);
+    }
+
+    #[inline]
+    fn SBC(&mut self, operand: u8) {
+        self.ADC((!operand).wrapping_add(1));
+        self.regs.set_flag(Flag::N);
+    }
+
+    #[inline]
     fn CP(&mut self, operand: u8) {
         let old_A = self.regs.A;
-        self.ADD((!operand).wrapping_add(1));
+        self.SUB(operand);
         self.regs.A = old_A;
     }
 
