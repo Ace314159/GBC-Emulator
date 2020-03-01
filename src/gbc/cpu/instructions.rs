@@ -326,11 +326,11 @@ impl CPU {
             0xD2 => n_conditional!(C, self.read_next_word(mmu), self.regs.PC.wrapping_add(2)),
             0xDA => conditional!(C, self.read_next_word(mmu), self.regs.PC.wrapping_add(2)),
             0xE9 => self.regs.PC = get_reg16!(H, L),
-            0x18 => self.regs.PC = self.regs.PC.wrapping_add(self.read_next_byte(mmu) as u16),
-            0x20 => n_conditional!(Z, self.regs.PC.wrapping_add(self.read_next_byte(mmu) as u16), self.regs.PC.wrapping_add(1)),
-            0x28 => conditional!(Z, self.regs.PC.wrapping_add(self.read_next_byte(mmu) as u16), self.regs.PC.wrapping_add(1)),
-            0x30 => n_conditional!(C, self.regs.PC.wrapping_add(self.read_next_byte(mmu) as u16), self.regs.PC.wrapping_add(1)),
-            0x38 => conditional!(C, self.regs.PC.wrapping_add(self.read_next_byte(mmu) as u16), self.regs.PC.wrapping_add(1)),
+            0x18 => self.regs.PC = self.relative(mmu),
+            0x20 => n_conditional!(Z, self.relative(mmu), self.regs.PC.wrapping_add(1)),
+            0x28 => conditional!(Z, self.relative(mmu), self.regs.PC.wrapping_add(1)),
+            0x30 => n_conditional!(C, self.relative(mmu), self.regs.PC.wrapping_add(1)),
+            0x38 => conditional!(C, self.relative(mmu), self.regs.PC.wrapping_add(1)),
 
             // Calls
             0xCD => self.regs.PC = self.CALL(mmu),
@@ -877,6 +877,12 @@ impl CPU {
     #[inline]
     fn RES(&self, value: u8, bit: u8) -> u8 {
         value & !(1 << bit)
+    }
+
+    #[inline]
+    fn relative(&mut self, mmu: &MMU) -> u16{
+        let val = self.read_next_byte(mmu) as i8;
+        self.regs.PC.wrapping_add(val as u16)
     }
 
     #[inline]
