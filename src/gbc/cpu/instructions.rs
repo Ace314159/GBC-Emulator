@@ -173,7 +173,7 @@ impl CPU {
             0xC1 => set_reg16!(B, C, self.stack_pop16(mmu)),
             0xD1 => set_reg16!(D, E, self.stack_pop16(mmu)),
             0xE1 => set_reg16!(H, L, self.stack_pop16(mmu)),
-            0xF1 => set_reg16!(A, F, self.stack_pop16(mmu)),
+            0xF1 => set_reg16!(A, F, self.stack_pop16(mmu) & 0xFFF0),
             // PUSH nn
             0xC5 => self.stack_push16(mmu, get_reg16!(B, C)),
             0xD5 => self.stack_push16(mmu, get_reg16!(D, E)),
