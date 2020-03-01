@@ -359,7 +359,7 @@ impl CPU {
         };
     }
 
-    fn CB(&mut self, mmu: &MMU) {
+    fn CB(&mut self, mmu: &mut MMU) {
         // Register Macros
         macro_rules! get_reg16 { ($high:ident, $low:ident) => { 
             (self.regs.$high as u16) << 8 | (self.regs.$low as u16)
@@ -371,6 +371,9 @@ impl CPU {
         // Addressing Mode Macros
         macro_rules! read_ind { ($addr:expr) => {
             { let addr: u16 = $addr; self.read_byte(mmu, addr) }
+        }}
+        macro_rules! write_ind { ($addr:expr, $value:expr) => {
+            { let addr: u16 = $addr; let value = $value; self.write_byte(mmu, addr, value); }
         }}
 
 
@@ -385,7 +388,7 @@ impl CPU {
             0x33 => self.regs.E = self.SWAP(self.regs.E),
             0x34 => self.regs.H = self.SWAP(self.regs.H),
             0x35 => self.regs.L = self.SWAP(self.regs.L),
-            0x36 => set_reg16!(H, L, self.SWAP(read_ind!(get_reg16!(H, L)))),
+            0x36 => write_ind!(get_reg16!(H, L), self.SWAP(read_ind!(get_reg16!(H, L)))),
 
             // Rotates
             0x07 => self.regs.A = self.RLC(self.regs.A),
@@ -395,7 +398,7 @@ impl CPU {
             0x03 => self.regs.E = self.RLC(self.regs.E),
             0x04 => self.regs.H = self.RLC(self.regs.H),
             0x05 => self.regs.L = self.RLC(self.regs.L),
-            0x06 => set_reg16!(H, L, self.RLC(read_ind!(get_reg16!(H, L)))),
+            0x06 => write_ind!(get_reg16!(H, L), self.RLC(read_ind!(get_reg16!(H, L)))),
             0x17 => self.regs.A = self.RL(self.regs.A),
             0x10 => self.regs.B = self.RL(self.regs.B),
             0x11 => self.regs.C = self.RL(self.regs.C),
@@ -403,7 +406,7 @@ impl CPU {
             0x13 => self.regs.E = self.RL(self.regs.E),
             0x14 => self.regs.H = self.RL(self.regs.H),
             0x15 => self.regs.L = self.RL(self.regs.L),
-            0x16 => set_reg16!(H, L, self.RL(read_ind!(get_reg16!(H, L)))),
+            0x16 => write_ind!(get_reg16!(H, L), self.RL(read_ind!(get_reg16!(H, L)))),
             0x0F => self.regs.A = self.RRC(self.regs.A),
             0x08 => self.regs.B = self.RRC(self.regs.B),
             0x09 => self.regs.C = self.RRC(self.regs.C),
@@ -411,7 +414,7 @@ impl CPU {
             0x0B => self.regs.E = self.RRC(self.regs.E),
             0x0C => self.regs.H = self.RRC(self.regs.H),
             0x0D => self.regs.L = self.RRC(self.regs.L),
-            0x0E => set_reg16!(H, L, self.RRC(read_ind!(get_reg16!(H, L)))),
+            0x0E => write_ind!(get_reg16!(H, L), self.RRC(read_ind!(get_reg16!(H, L)))),
             0x1F => self.regs.A = self.RR(self.regs.A),
             0x18 => self.regs.B = self.RR(self.regs.B),
             0x19 => self.regs.C = self.RR(self.regs.C),
@@ -419,7 +422,7 @@ impl CPU {
             0x1B => self.regs.E = self.RR(self.regs.E),
             0x1C => self.regs.H = self.RR(self.regs.H),
             0x1D => self.regs.L = self.RR(self.regs.L),
-            0x1E => set_reg16!(H, L, self.RR(read_ind!(get_reg16!(H, L)))),
+            0x1E => write_ind!(get_reg16!(H, L), self.RR(read_ind!(get_reg16!(H, L)))),
             0x27 => self.regs.A = self.SLA(self.regs.A),
             0x20 => self.regs.B = self.SLA(self.regs.B),
             0x21 => self.regs.C = self.SLA(self.regs.C),
@@ -427,7 +430,7 @@ impl CPU {
             0x23 => self.regs.E = self.SLA(self.regs.E),
             0x24 => self.regs.H = self.SLA(self.regs.H),
             0x25 => self.regs.L = self.SLA(self.regs.L),
-            0x26 => set_reg16!(H, L, self.SLA(read_ind!(get_reg16!(H, L)))),
+            0x26 => write_ind!(get_reg16!(H, L), self.SLA(read_ind!(get_reg16!(H, L)))),
             0x2F => self.regs.A = self.SRA(self.regs.A),
             0x28 => self.regs.B = self.SRA(self.regs.B),
             0x29 => self.regs.C = self.SRA(self.regs.C),
@@ -435,7 +438,7 @@ impl CPU {
             0x2B => self.regs.E = self.SRA(self.regs.E),
             0x2C => self.regs.H = self.SRA(self.regs.H),
             0x2D => self.regs.L = self.SRA(self.regs.L),
-            0x2E => set_reg16!(H, L, self.SRA(read_ind!(get_reg16!(H, L)))),
+            0x2E => write_ind!(get_reg16!(H, L), self.SRA(read_ind!(get_reg16!(H, L)))),
             0x3F => self.regs.A = self.SRL(self.regs.A),
             0x38 => self.regs.B = self.SRL(self.regs.B),
             0x39 => self.regs.C = self.SRL(self.regs.C),
@@ -443,7 +446,7 @@ impl CPU {
             0x3B => self.regs.E = self.SRL(self.regs.E),
             0x3C => self.regs.H = self.SRL(self.regs.H),
             0x3D => self.regs.L = self.SRL(self.regs.L),
-            0x3E => set_reg16!(H, L, self.SRL(read_ind!(get_reg16!(H, L)))),
+            0x3E => write_ind!(get_reg16!(H, L), self.SRL(read_ind!(get_reg16!(H, L)))),
             
             // Bit Operations
             0x47 => self.BIT(self.regs.A, 0),
@@ -517,7 +520,7 @@ impl CPU {
             0x83 => self.regs.E = self.RES(self.regs.E, 0),
             0x84 => self.regs.H = self.RES(self.regs.H, 0),
             0x85 => self.regs.L = self.RES(self.regs.L, 0),
-            0x86 => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 0)),
+            0x86 => write_ind!(get_reg16!(H, L), self.RES(read_ind!(get_reg16!(H, L)), 0)),
             0x8F => self.regs.A = self.RES(self.regs.A, 1),
             0x88 => self.regs.B = self.RES(self.regs.B, 1),
             0x89 => self.regs.C = self.RES(self.regs.C, 1),
@@ -525,7 +528,7 @@ impl CPU {
             0x8B => self.regs.E = self.RES(self.regs.E, 1),
             0x8C => self.regs.H = self.RES(self.regs.H, 1),
             0x8D => self.regs.L = self.RES(self.regs.L, 1),
-            0x8E => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 1)),
+            0x8E => write_ind!(get_reg16!(H, L), self.RES(read_ind!(get_reg16!(H, L)), 1)),
             0x97 => self.regs.A = self.RES(self.regs.A, 2),
             0x90 => self.regs.B = self.RES(self.regs.B, 2),
             0x91 => self.regs.C = self.RES(self.regs.C, 2),
@@ -533,7 +536,7 @@ impl CPU {
             0x93 => self.regs.E = self.RES(self.regs.E, 2),
             0x94 => self.regs.H = self.RES(self.regs.H, 2),
             0x95 => self.regs.L = self.RES(self.regs.L, 2),
-            0x96 => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 2)),
+            0x96 => write_ind!(get_reg16!(H, L), self.RES(read_ind!(get_reg16!(H, L)), 2)),
             0x9F => self.regs.A = self.RES(self.regs.A, 3),
             0x98 => self.regs.B = self.RES(self.regs.B, 3),
             0x99 => self.regs.C = self.RES(self.regs.C, 3),
@@ -541,7 +544,7 @@ impl CPU {
             0x9B => self.regs.E = self.RES(self.regs.E, 3),
             0x9C => self.regs.H = self.RES(self.regs.H, 3),
             0x9D => self.regs.L = self.RES(self.regs.L, 3),
-            0x9E => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 3)),
+            0x9E => write_ind!(get_reg16!(H, L), self.RES(read_ind!(get_reg16!(H, L)), 3)),
             0xA7 => self.regs.A = self.RES(self.regs.A, 4),
             0xA0 => self.regs.B = self.RES(self.regs.B, 4),
             0xA1 => self.regs.C = self.RES(self.regs.C, 4),
@@ -549,7 +552,7 @@ impl CPU {
             0xA3 => self.regs.E = self.RES(self.regs.E, 4),
             0xA4 => self.regs.H = self.RES(self.regs.H, 4),
             0xA5 => self.regs.L = self.RES(self.regs.L, 4),
-            0xA6 => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 4)),
+            0xA6 => write_ind!(get_reg16!(H, L), self.RES(read_ind!(get_reg16!(H, L)), 4)),
             0xAF => self.regs.A = self.RES(self.regs.A, 5),
             0xA8 => self.regs.B = self.RES(self.regs.B, 5),
             0xA9 => self.regs.C = self.RES(self.regs.C, 5),
@@ -557,7 +560,7 @@ impl CPU {
             0xAB => self.regs.E = self.RES(self.regs.E, 5),
             0xAC => self.regs.H = self.RES(self.regs.H, 5),
             0xAD => self.regs.L = self.RES(self.regs.L, 5),
-            0xAE => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 5)),
+            0xAE => write_ind!(get_reg16!(H, L), self.RES(read_ind!(get_reg16!(H, L)), 5)),
             0xB7 => self.regs.A = self.RES(self.regs.A, 6),
             0xB0 => self.regs.B = self.RES(self.regs.B, 6),
             0xB1 => self.regs.C = self.RES(self.regs.C, 6),
@@ -565,7 +568,7 @@ impl CPU {
             0xB3 => self.regs.E = self.RES(self.regs.E, 6),
             0xB4 => self.regs.H = self.RES(self.regs.H, 6),
             0xB5 => self.regs.L = self.RES(self.regs.L, 6),
-            0xB6 => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 6)),
+            0xB6 => write_ind!(get_reg16!(H, L), self.RES(read_ind!(get_reg16!(H, L)), 6)),
             0xBF => self.regs.A = self.RES(self.regs.A, 7),
             0xB8 => self.regs.B = self.RES(self.regs.B, 7),
             0xB9 => self.regs.C = self.RES(self.regs.C, 7),
@@ -573,7 +576,7 @@ impl CPU {
             0xBB => self.regs.E = self.RES(self.regs.E, 7),
             0xBC => self.regs.H = self.RES(self.regs.H, 7),
             0xBD => self.regs.L = self.RES(self.regs.L, 7),
-            0xBE => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 7)),
+            0xBE => write_ind!(get_reg16!(H, L), self.RES(read_ind!(get_reg16!(H, L)), 7)),
             0xC7 => self.regs.A = self.SET(self.regs.A, 0),
             0xC0 => self.regs.B = self.SET(self.regs.B, 0),
             0xC1 => self.regs.C = self.SET(self.regs.C, 0),
@@ -581,7 +584,7 @@ impl CPU {
             0xC3 => self.regs.E = self.SET(self.regs.E, 0),
             0xC4 => self.regs.H = self.SET(self.regs.H, 0),
             0xC5 => self.regs.L = self.SET(self.regs.L, 0),
-            0xC6 => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 0)),
+            0xC6 => write_ind!(get_reg16!(H, L), self.SET(read_ind!(get_reg16!(H, L)), 0)),
             0xCF => self.regs.A = self.SET(self.regs.A, 1),
             0xC8 => self.regs.B = self.SET(self.regs.B, 1),
             0xC9 => self.regs.C = self.SET(self.regs.C, 1),
@@ -589,7 +592,7 @@ impl CPU {
             0xCB => self.regs.E = self.SET(self.regs.E, 1),
             0xCC => self.regs.H = self.SET(self.regs.H, 1),
             0xCD => self.regs.L = self.SET(self.regs.L, 1),
-            0xCE => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 1)),
+            0xCE => write_ind!(get_reg16!(H, L), self.SET(read_ind!(get_reg16!(H, L)), 1)),
             0xD7 => self.regs.A = self.SET(self.regs.A, 2),
             0xD0 => self.regs.B = self.SET(self.regs.B, 2),
             0xD1 => self.regs.C = self.SET(self.regs.C, 2),
@@ -597,7 +600,7 @@ impl CPU {
             0xD3 => self.regs.E = self.SET(self.regs.E, 2),
             0xD4 => self.regs.H = self.SET(self.regs.H, 2),
             0xD5 => self.regs.L = self.SET(self.regs.L, 2),
-            0xD6 => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 2)),
+            0xD6 => write_ind!(get_reg16!(H, L), self.SET(read_ind!(get_reg16!(H, L)), 2)),
             0xDF => self.regs.A = self.SET(self.regs.A, 3),
             0xD8 => self.regs.B = self.SET(self.regs.B, 3),
             0xD9 => self.regs.C = self.SET(self.regs.C, 3),
@@ -605,7 +608,7 @@ impl CPU {
             0xDB => self.regs.E = self.SET(self.regs.E, 3),
             0xDC => self.regs.H = self.SET(self.regs.H, 3),
             0xDD => self.regs.L = self.SET(self.regs.L, 3),
-            0xDE => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 3)),
+            0xDE => write_ind!(get_reg16!(H, L), self.SET(read_ind!(get_reg16!(H, L)), 3)),
             0xE7 => self.regs.A = self.SET(self.regs.A, 4),
             0xE0 => self.regs.B = self.SET(self.regs.B, 4),
             0xE1 => self.regs.C = self.SET(self.regs.C, 4),
@@ -613,7 +616,7 @@ impl CPU {
             0xE3 => self.regs.E = self.SET(self.regs.E, 4),
             0xE4 => self.regs.H = self.SET(self.regs.H, 4),
             0xE5 => self.regs.L = self.SET(self.regs.L, 4),
-            0xE6 => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 4)),
+            0xE6 => write_ind!(get_reg16!(H, L), self.SET(read_ind!(get_reg16!(H, L)), 4)),
             0xEF => self.regs.A = self.SET(self.regs.A, 5),
             0xE8 => self.regs.B = self.SET(self.regs.B, 5),
             0xE9 => self.regs.C = self.SET(self.regs.C, 5),
@@ -621,7 +624,7 @@ impl CPU {
             0xEB => self.regs.E = self.SET(self.regs.E, 5),
             0xEC => self.regs.H = self.SET(self.regs.H, 5),
             0xED => self.regs.L = self.SET(self.regs.L, 5),
-            0xEE => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 5)),
+            0xEE => write_ind!(get_reg16!(H, L), self.SET(read_ind!(get_reg16!(H, L)), 5)),
             0xF7 => self.regs.A = self.SET(self.regs.A, 6),
             0xF0 => self.regs.B = self.SET(self.regs.B, 6),
             0xF1 => self.regs.C = self.SET(self.regs.C, 6),
@@ -629,7 +632,7 @@ impl CPU {
             0xF3 => self.regs.E = self.SET(self.regs.E, 6),
             0xF4 => self.regs.H = self.SET(self.regs.H, 6),
             0xF5 => self.regs.L = self.SET(self.regs.L, 6),
-            0xF6 => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 6)),
+            0xF6 => write_ind!(get_reg16!(H, L), self.SET(read_ind!(get_reg16!(H, L)), 6)),
             0xFF => self.regs.A = self.SET(self.regs.A, 7),
             0xF8 => self.regs.B = self.SET(self.regs.B, 7),
             0xF9 => self.regs.C = self.SET(self.regs.C, 7),
@@ -637,7 +640,7 @@ impl CPU {
             0xFB => self.regs.E = self.SET(self.regs.E, 7),
             0xFC => self.regs.H = self.SET(self.regs.H, 7),
             0xFD => self.regs.L = self.SET(self.regs.L, 7),
-            0xFE => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 7)),
+            0xFE => write_ind!(get_reg16!(H, L), self.SET(read_ind!(get_reg16!(H, L)), 7)),
         }
     }
 
@@ -809,8 +812,8 @@ impl CPU {
 
     #[inline]
     fn RLC(&mut self, value: u8) -> u8 {
-        self.regs.change_flag(value >> 7 == 1, Flag::C);
-        let return_val = (value << 1) | (value >> 7);
+        self.regs.change_flag(value & 0x80 != 0, Flag::C);
+        let return_val = value.rotate_left(1);
 
         self.regs.change_flag(return_val == 0, Flag::Z);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
@@ -820,7 +823,7 @@ impl CPU {
     #[inline]
     fn RL(&mut self, value: u8) -> u8 {
         let old_c = self.regs.getFlag(Flag::C) as u8;
-        self.regs.change_flag(value >> 7 == 1, Flag::C);
+        self.regs.change_flag(value & 0x80 != 0, Flag::C);
         let return_val = (value << 1) | old_c as u8;
         
         self.regs.change_flag(return_val == 0, Flag::Z);
@@ -831,7 +834,7 @@ impl CPU {
     #[inline]
     fn RRC(&mut self, value: u8) -> u8 {
         self.regs.change_flag(value & 0x1 == 1, Flag::C);
-        let return_val = (value >> 1) | ((value & 0x1) << 7);
+        let return_val = value.rotate_right(1);
 
         self.regs.change_flag(return_val == 0, Flag::Z);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
@@ -851,7 +854,7 @@ impl CPU {
 
     #[inline]
     fn SLA(&mut self, value: u8) -> u8 {
-        self.regs.change_flag(value >> 7 == 1, Flag::C);
+        self.regs.change_flag(value & 0x80 != 0, Flag::C);
         let return_val = value << 1;
 
         self.regs.change_flag(return_val == 0, Flag::Z);
@@ -862,7 +865,7 @@ impl CPU {
     #[inline]
     fn SRA(&mut self, value: u8) -> u8 {
         self.regs.change_flag(value & 0x1 == 1, Flag::C);
-        let return_val = (value >> 1) | (value & 0x10);
+        let return_val = (value >> 1) | (value & 0x80);
 
         self.regs.change_flag(return_val == 0, Flag::Z);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
