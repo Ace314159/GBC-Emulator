@@ -15,6 +15,9 @@
             "cwd": "${workspaceRoot}",
             "environment": [{"name": "RUST_BACKTRACE", "value": "1"}],
             "externalConsole": false,
+            "sourceFileMap": {
+                "/rustc/5e1a799842ba6ed4a57e91f7ab9435947482f7d8": "${env:HOME}${env:USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust"
+            }
         }
     ]
 }
