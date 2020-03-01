@@ -759,7 +759,7 @@ impl CPU {
         let N = self.regs.getFlag(Flag::N);
         let C = self.regs.getFlag(Flag::C);
         let H = self.regs.getFlag(Flag::H);
-        if N {
+        if !N {
             if C || self.regs.A > 0x99 { self.regs.A = self.regs.A.wrapping_add(0x60); self.regs.set_flag(Flag::C) }
             if H || self.regs.A & 0x0F > 0x09 { self.regs.A = self.regs.A.wrapping_add(0x06); }
         } else {
