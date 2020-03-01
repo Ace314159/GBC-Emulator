@@ -6,8 +6,6 @@ use super::Flag;
 
 impl CPU {
     pub fn exec(&mut self, mmu: &mut MMU) {
-        let opcode = self.read_next_byte(mmu);
-
         // Register Macros
         macro_rules! get_reg16 { ($high:ident, $low:ident) => { 
             (self.regs.$high as u16) << 8 | (self.regs.$low as u16)
@@ -57,38 +55,6 @@ impl CPU {
             { let value = get_reg16!($high, $low).$op(1); set_reg16!($high, $low, value); }
         }}
 
-        // Rotate Macros
-        macro_rules! rlc { ($reg:ident) => { {
-            self.regs.changeFlag(self.regs.$reg >> 7 == 1, Flag::C);
-            self.regs.$reg = (self.regs.$reg << 1) | (self.regs.$reg >> 7);
-
-            self.regs.changeFlag(self.regs.$reg == 0, Flag::Z);
-            self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
-        } }}
-        macro_rules! rl { ($reg:ident) => { {
-            let old_c = self.regs.getFlag(Flag::C) as u8;
-            self.regs.changeFlag(self.regs.$reg >> 7 == 1, Flag::C);
-            self.regs.$reg = (self.regs.$reg << 1) | old_c as u8;
-            
-            self.regs.changeFlag(self.regs.$reg == 0, Flag::Z);
-            self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
-        } }}
-        macro_rules! rrc { ($reg:ident) => { {
-            self.regs.changeFlag(self.regs.$reg & 0x1 == 1, Flag::C);
-            self.regs.$reg = (self.regs.$reg >> 1) | ((self.regs.$reg & 0x1) << 7);
-
-            self.regs.changeFlag(self.regs.$reg == 0, Flag::Z);
-            self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
-        } }}
-        macro_rules! rr { ($reg:ident) => { {
-            let old_c = self.regs.getFlag(Flag::C) as u8;
-            self.regs.changeFlag(self.regs.$reg & 0x1 == 1, Flag::C);
-            self.regs.$reg = (self.regs.$reg >> 1) | ((old_c as u8) << 7);
-            
-            self.regs.changeFlag(self.regs.$reg == 0, Flag::Z);
-            self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
-        } }}
-
         // Jump Macros
         macro_rules! conditional { ($flag:ident, $pass:expr, $fail:expr) => {
             if self.regs.getFlag(Flag::$flag) { self.regs.PC = $pass } else { self.regs.PC = $fail }
@@ -96,6 +62,8 @@ impl CPU {
         macro_rules! n_conditional { ($flag:ident, $pass:expr, $fail:expr) => {
             if !self.regs.getFlag(Flag::$flag) { self.regs.PC = $pass } else { self.regs.PC = $fail }
         }}
+
+        let opcode = self.read_next_byte(mmu);
 
         match opcode {
             // 8 Bit Loads
@@ -334,7 +302,7 @@ impl CPU {
             0x3B => self.regs.SP = self.regs.SP.wrapping_sub(1),
 
             // Misc
-            0xCB => self.CB(),
+            0xCB => self.CB(mmu),
             0x27 => self.DAA(),
             0x2F => self.CPL(),
             0x3F => self.CCF(),
@@ -346,10 +314,10 @@ impl CPU {
             0xFB => { println!("EI"); }, // EI
             
             // Rotates
-            0x07 => rlc!(A),
-            0x17 => rl!(A),
-            0x0F => rrc!(A),
-            0x1F => rr!(A),
+            0x07 => self.regs.A = self.RLC(self.regs.A),
+            0x17 => self.regs.A = self.RL(self.regs.A),
+            0x0F => self.regs.A = self.RRC(self.regs.A),
+            0x1F => self.regs.A = self.RR(self.regs.A),
             
             // Jumps
             0xC3 => self.regs.PC = self.read_next_word(mmu),
@@ -388,12 +356,290 @@ impl CPU {
             0xD0 => n_conditional!(C, self.RET(mmu), self.regs.PC),
             0xD8 => conditional!(C, self.RET(mmu), self.regs.PC),
 
-            _ => println!("Unoffical Opcode {}", opcode),
+            _ => println!("Unoffical Opcode {:X}", opcode),
         };
     }
 
-    fn CB(&self) {
+    fn CB(&mut self, mmu: &MMU) {
+        // Register Macros
+        macro_rules! get_reg16 { ($high:ident, $low:ident) => { 
+            (self.regs.$high as u16) << 8 | (self.regs.$low as u16)
+        } }
+        macro_rules! set_reg16 { ($high:ident, $low:ident, $value:expr) => {
+            { let value = $value; self.regs.$high = (value >> 8) as u8; self.regs.$low = (value & 0xFF) as u8; }
+        } }
 
+        // Addressing Mode Macros
+        macro_rules! read_ind { ($addr:expr) => {
+            { let addr: u16 = $addr; self.read_byte(mmu, addr) }
+        }}
+
+
+        let opcode = self.read_next_byte(mmu);
+
+        match opcode {
+            // Misc
+            0x37 => self.regs.A = self.SWAP(self.regs.A),
+            0x30 => self.regs.B = self.SWAP(self.regs.B),
+            0x31 => self.regs.C = self.SWAP(self.regs.C),
+            0x32 => self.regs.D = self.SWAP(self.regs.D),
+            0x33 => self.regs.E = self.SWAP(self.regs.E),
+            0x34 => self.regs.H = self.SWAP(self.regs.H),
+            0x35 => self.regs.L = self.SWAP(self.regs.L),
+            0x36 => set_reg16!(H, L, self.SWAP(read_ind!(get_reg16!(H, L)))),
+
+            // Rotates
+            0x07 => self.regs.A = self.RLC(self.regs.A),
+            0x00 => self.regs.B = self.RLC(self.regs.B),
+            0x01 => self.regs.C = self.RLC(self.regs.C),
+            0x02 => self.regs.D = self.RLC(self.regs.D),
+            0x03 => self.regs.E = self.RLC(self.regs.E),
+            0x04 => self.regs.H = self.RLC(self.regs.H),
+            0x05 => self.regs.L = self.RLC(self.regs.L),
+            0x06 => set_reg16!(H, L, self.RLC(read_ind!(get_reg16!(H, L)))),
+            0x17 => self.regs.A = self.RL(self.regs.A),
+            0x10 => self.regs.B = self.RL(self.regs.B),
+            0x11 => self.regs.C = self.RL(self.regs.C),
+            0x12 => self.regs.D = self.RL(self.regs.D),
+            0x13 => self.regs.E = self.RL(self.regs.E),
+            0x14 => self.regs.H = self.RL(self.regs.H),
+            0x15 => self.regs.L = self.RL(self.regs.L),
+            0x16 => set_reg16!(H, L, self.RL(read_ind!(get_reg16!(H, L)))),
+            0x0F => self.regs.A = self.RRC(self.regs.A),
+            0x08 => self.regs.B = self.RRC(self.regs.B),
+            0x09 => self.regs.C = self.RRC(self.regs.C),
+            0x0A => self.regs.D = self.RRC(self.regs.D),
+            0x0B => self.regs.E = self.RRC(self.regs.E),
+            0x0C => self.regs.H = self.RRC(self.regs.H),
+            0x0D => self.regs.L = self.RRC(self.regs.L),
+            0x0E => set_reg16!(H, L, self.RRC(read_ind!(get_reg16!(H, L)))),
+            0x1F => self.regs.A = self.RR(self.regs.A),
+            0x18 => self.regs.B = self.RR(self.regs.B),
+            0x19 => self.regs.C = self.RR(self.regs.C),
+            0x1A => self.regs.D = self.RR(self.regs.D),
+            0x1B => self.regs.E = self.RR(self.regs.E),
+            0x1C => self.regs.H = self.RR(self.regs.H),
+            0x1D => self.regs.L = self.RR(self.regs.L),
+            0x1E => set_reg16!(H, L, self.RR(read_ind!(get_reg16!(H, L)))),
+            0x27 => self.regs.A = self.SLA(self.regs.A),
+            0x20 => self.regs.B = self.SLA(self.regs.B),
+            0x21 => self.regs.C = self.SLA(self.regs.C),
+            0x22 => self.regs.D = self.SLA(self.regs.D),
+            0x23 => self.regs.E = self.SLA(self.regs.E),
+            0x24 => self.regs.H = self.SLA(self.regs.H),
+            0x25 => self.regs.L = self.SLA(self.regs.L),
+            0x26 => set_reg16!(H, L, self.SLA(read_ind!(get_reg16!(H, L)))),
+            0x2F => self.regs.A = self.SRA(self.regs.A),
+            0x28 => self.regs.B = self.SRA(self.regs.B),
+            0x29 => self.regs.C = self.SRA(self.regs.C),
+            0x2A => self.regs.D = self.SRA(self.regs.D),
+            0x2B => self.regs.E = self.SRA(self.regs.E),
+            0x2C => self.regs.H = self.SRA(self.regs.H),
+            0x2D => self.regs.L = self.SRA(self.regs.L),
+            0x2E => set_reg16!(H, L, self.SRA(read_ind!(get_reg16!(H, L)))),
+            0x3F => self.regs.A = self.SRL(self.regs.A),
+            0x38 => self.regs.B = self.SRL(self.regs.B),
+            0x39 => self.regs.C = self.SRL(self.regs.C),
+            0x3A => self.regs.D = self.SRL(self.regs.D),
+            0x3B => self.regs.E = self.SRL(self.regs.E),
+            0x3C => self.regs.H = self.SRL(self.regs.H),
+            0x3D => self.regs.L = self.SRL(self.regs.L),
+            0x3E => set_reg16!(H, L, self.SRL(read_ind!(get_reg16!(H, L)))),
+            
+            // Bit Operations
+            0x47 => self.BIT(self.regs.A, 0),
+            0x40 => self.BIT(self.regs.B, 0),
+            0x41 => self.BIT(self.regs.C, 0),
+            0x42 => self.BIT(self.regs.D, 0),
+            0x43 => self.BIT(self.regs.E, 0),
+            0x44 => self.BIT(self.regs.H, 0),
+            0x45 => self.BIT(self.regs.L, 0),
+            0x46 => self.BIT(read_ind!(get_reg16!(H, L)), 0),
+            0x4F => self.BIT(self.regs.A, 1),
+            0x48 => self.BIT(self.regs.B, 1),
+            0x49 => self.BIT(self.regs.C, 1),
+            0x4A => self.BIT(self.regs.D, 1),
+            0x4B => self.BIT(self.regs.E, 1),
+            0x4C => self.BIT(self.regs.H, 1),
+            0x4D => self.BIT(self.regs.L, 1),
+            0x4E => self.BIT(read_ind!(get_reg16!(H, L)), 1),
+            0x57 => self.BIT(self.regs.A, 2),
+            0x50 => self.BIT(self.regs.B, 2),
+            0x51 => self.BIT(self.regs.C, 2),
+            0x52 => self.BIT(self.regs.D, 2),
+            0x53 => self.BIT(self.regs.E, 2),
+            0x54 => self.BIT(self.regs.H, 2),
+            0x55 => self.BIT(self.regs.L, 2),
+            0x56 => self.BIT(read_ind!(get_reg16!(H, L)), 2),
+            0x5F => self.BIT(self.regs.A, 3),
+            0x58 => self.BIT(self.regs.B, 3),
+            0x59 => self.BIT(self.regs.C, 3),
+            0x5A => self.BIT(self.regs.D, 3),
+            0x5B => self.BIT(self.regs.E, 3),
+            0x5C => self.BIT(self.regs.H, 3),
+            0x5D => self.BIT(self.regs.L, 3),
+            0x5E => self.BIT(read_ind!(get_reg16!(H, L)), 3),
+            0x67 => self.BIT(self.regs.A, 4),
+            0x60 => self.BIT(self.regs.B, 4),
+            0x61 => self.BIT(self.regs.C, 4),
+            0x62 => self.BIT(self.regs.D, 4),
+            0x63 => self.BIT(self.regs.E, 4),
+            0x64 => self.BIT(self.regs.H, 4),
+            0x65 => self.BIT(self.regs.L, 4),
+            0x66 => self.BIT(read_ind!(get_reg16!(H, L)), 4),
+            0x6F => self.BIT(self.regs.A, 5),
+            0x68 => self.BIT(self.regs.B, 5),
+            0x69 => self.BIT(self.regs.C, 5),
+            0x6A => self.BIT(self.regs.D, 5),
+            0x6B => self.BIT(self.regs.E, 5),
+            0x6C => self.BIT(self.regs.H, 5),
+            0x6D => self.BIT(self.regs.L, 5),
+            0x6E => self.BIT(read_ind!(get_reg16!(H, L)), 5),
+            0x77 => self.BIT(self.regs.A, 6),
+            0x70 => self.BIT(self.regs.B, 6),
+            0x71 => self.BIT(self.regs.C, 6),
+            0x72 => self.BIT(self.regs.D, 6),
+            0x73 => self.BIT(self.regs.E, 6),
+            0x74 => self.BIT(self.regs.H, 6),
+            0x75 => self.BIT(self.regs.L, 6),
+            0x76 => self.BIT(read_ind!(get_reg16!(H, L)), 6),
+            0x7F => self.BIT(self.regs.A, 7),
+            0x78 => self.BIT(self.regs.B, 7),
+            0x79 => self.BIT(self.regs.C, 7),
+            0x7A => self.BIT(self.regs.D, 7),
+            0x7B => self.BIT(self.regs.E, 7),
+            0x7C => self.BIT(self.regs.H, 7),
+            0x7D => self.BIT(self.regs.L, 7),
+            0x7E => self.BIT(read_ind!(get_reg16!(H, L)), 7),
+            0x87 => self.regs.A = self.RES(self.regs.A, 0),
+            0x80 => self.regs.B = self.RES(self.regs.B, 0),
+            0x81 => self.regs.C = self.RES(self.regs.C, 0),
+            0x82 => self.regs.D = self.RES(self.regs.D, 0),
+            0x83 => self.regs.E = self.RES(self.regs.E, 0),
+            0x84 => self.regs.H = self.RES(self.regs.H, 0),
+            0x85 => self.regs.L = self.RES(self.regs.L, 0),
+            0x86 => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 0)),
+            0x8F => self.regs.A = self.RES(self.regs.A, 1),
+            0x88 => self.regs.B = self.RES(self.regs.B, 1),
+            0x89 => self.regs.C = self.RES(self.regs.C, 1),
+            0x8A => self.regs.D = self.RES(self.regs.D, 1),
+            0x8B => self.regs.E = self.RES(self.regs.E, 1),
+            0x8C => self.regs.H = self.RES(self.regs.H, 1),
+            0x8D => self.regs.L = self.RES(self.regs.L, 1),
+            0x8E => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 1)),
+            0x97 => self.regs.A = self.RES(self.regs.A, 2),
+            0x90 => self.regs.B = self.RES(self.regs.B, 2),
+            0x91 => self.regs.C = self.RES(self.regs.C, 2),
+            0x92 => self.regs.D = self.RES(self.regs.D, 2),
+            0x93 => self.regs.E = self.RES(self.regs.E, 2),
+            0x94 => self.regs.H = self.RES(self.regs.H, 2),
+            0x95 => self.regs.L = self.RES(self.regs.L, 2),
+            0x96 => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 2)),
+            0x9F => self.regs.A = self.RES(self.regs.A, 3),
+            0x98 => self.regs.B = self.RES(self.regs.B, 3),
+            0x99 => self.regs.C = self.RES(self.regs.C, 3),
+            0x9A => self.regs.D = self.RES(self.regs.D, 3),
+            0x9B => self.regs.E = self.RES(self.regs.E, 3),
+            0x9C => self.regs.H = self.RES(self.regs.H, 3),
+            0x9D => self.regs.L = self.RES(self.regs.L, 3),
+            0x9E => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 3)),
+            0xA7 => self.regs.A = self.RES(self.regs.A, 4),
+            0xA0 => self.regs.B = self.RES(self.regs.B, 4),
+            0xA1 => self.regs.C = self.RES(self.regs.C, 4),
+            0xA2 => self.regs.D = self.RES(self.regs.D, 4),
+            0xA3 => self.regs.E = self.RES(self.regs.E, 4),
+            0xA4 => self.regs.H = self.RES(self.regs.H, 4),
+            0xA5 => self.regs.L = self.RES(self.regs.L, 4),
+            0xA6 => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 4)),
+            0xAF => self.regs.A = self.RES(self.regs.A, 5),
+            0xA8 => self.regs.B = self.RES(self.regs.B, 5),
+            0xA9 => self.regs.C = self.RES(self.regs.C, 5),
+            0xAA => self.regs.D = self.RES(self.regs.D, 5),
+            0xAB => self.regs.E = self.RES(self.regs.E, 5),
+            0xAC => self.regs.H = self.RES(self.regs.H, 5),
+            0xAD => self.regs.L = self.RES(self.regs.L, 5),
+            0xAE => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 5)),
+            0xB7 => self.regs.A = self.RES(self.regs.A, 6),
+            0xB0 => self.regs.B = self.RES(self.regs.B, 6),
+            0xB1 => self.regs.C = self.RES(self.regs.C, 6),
+            0xB2 => self.regs.D = self.RES(self.regs.D, 6),
+            0xB3 => self.regs.E = self.RES(self.regs.E, 6),
+            0xB4 => self.regs.H = self.RES(self.regs.H, 6),
+            0xB5 => self.regs.L = self.RES(self.regs.L, 6),
+            0xB6 => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 6)),
+            0xBF => self.regs.A = self.RES(self.regs.A, 7),
+            0xB8 => self.regs.B = self.RES(self.regs.B, 7),
+            0xB9 => self.regs.C = self.RES(self.regs.C, 7),
+            0xBA => self.regs.D = self.RES(self.regs.D, 7),
+            0xBB => self.regs.E = self.RES(self.regs.E, 7),
+            0xBC => self.regs.H = self.RES(self.regs.H, 7),
+            0xBD => self.regs.L = self.RES(self.regs.L, 7),
+            0xBE => set_reg16!(H, L, self.RES(read_ind!(get_reg16!(H, L)), 7)),
+            0xC7 => self.regs.A = self.SET(self.regs.A, 0),
+            0xC0 => self.regs.B = self.SET(self.regs.B, 0),
+            0xC1 => self.regs.C = self.SET(self.regs.C, 0),
+            0xC2 => self.regs.D = self.SET(self.regs.D, 0),
+            0xC3 => self.regs.E = self.SET(self.regs.E, 0),
+            0xC4 => self.regs.H = self.SET(self.regs.H, 0),
+            0xC5 => self.regs.L = self.SET(self.regs.L, 0),
+            0xC6 => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 0)),
+            0xCF => self.regs.A = self.SET(self.regs.A, 1),
+            0xC8 => self.regs.B = self.SET(self.regs.B, 1),
+            0xC9 => self.regs.C = self.SET(self.regs.C, 1),
+            0xCA => self.regs.D = self.SET(self.regs.D, 1),
+            0xCB => self.regs.E = self.SET(self.regs.E, 1),
+            0xCC => self.regs.H = self.SET(self.regs.H, 1),
+            0xCD => self.regs.L = self.SET(self.regs.L, 1),
+            0xCE => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 1)),
+            0xD7 => self.regs.A = self.SET(self.regs.A, 2),
+            0xD0 => self.regs.B = self.SET(self.regs.B, 2),
+            0xD1 => self.regs.C = self.SET(self.regs.C, 2),
+            0xD2 => self.regs.D = self.SET(self.regs.D, 2),
+            0xD3 => self.regs.E = self.SET(self.regs.E, 2),
+            0xD4 => self.regs.H = self.SET(self.regs.H, 2),
+            0xD5 => self.regs.L = self.SET(self.regs.L, 2),
+            0xD6 => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 2)),
+            0xDF => self.regs.A = self.SET(self.regs.A, 3),
+            0xD8 => self.regs.B = self.SET(self.regs.B, 3),
+            0xD9 => self.regs.C = self.SET(self.regs.C, 3),
+            0xDA => self.regs.D = self.SET(self.regs.D, 3),
+            0xDB => self.regs.E = self.SET(self.regs.E, 3),
+            0xDC => self.regs.H = self.SET(self.regs.H, 3),
+            0xDD => self.regs.L = self.SET(self.regs.L, 3),
+            0xDE => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 3)),
+            0xE7 => self.regs.A = self.SET(self.regs.A, 4),
+            0xE0 => self.regs.B = self.SET(self.regs.B, 4),
+            0xE1 => self.regs.C = self.SET(self.regs.C, 4),
+            0xE2 => self.regs.D = self.SET(self.regs.D, 4),
+            0xE3 => self.regs.E = self.SET(self.regs.E, 4),
+            0xE4 => self.regs.H = self.SET(self.regs.H, 4),
+            0xE5 => self.regs.L = self.SET(self.regs.L, 4),
+            0xE6 => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 4)),
+            0xEF => self.regs.A = self.SET(self.regs.A, 5),
+            0xE8 => self.regs.B = self.SET(self.regs.B, 5),
+            0xE9 => self.regs.C = self.SET(self.regs.C, 5),
+            0xEA => self.regs.D = self.SET(self.regs.D, 5),
+            0xEB => self.regs.E = self.SET(self.regs.E, 5),
+            0xEC => self.regs.H = self.SET(self.regs.H, 5),
+            0xED => self.regs.L = self.SET(self.regs.L, 5),
+            0xEE => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 5)),
+            0xF7 => self.regs.A = self.SET(self.regs.A, 6),
+            0xF0 => self.regs.B = self.SET(self.regs.B, 6),
+            0xF1 => self.regs.C = self.SET(self.regs.C, 6),
+            0xF2 => self.regs.D = self.SET(self.regs.D, 6),
+            0xF3 => self.regs.E = self.SET(self.regs.E, 6),
+            0xF4 => self.regs.H = self.SET(self.regs.H, 6),
+            0xF5 => self.regs.L = self.SET(self.regs.L, 6),
+            0xF6 => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 6)),
+            0xFF => self.regs.A = self.SET(self.regs.A, 7),
+            0xF8 => self.regs.B = self.SET(self.regs.B, 7),
+            0xF9 => self.regs.C = self.SET(self.regs.C, 7),
+            0xFA => self.regs.D = self.SET(self.regs.D, 7),
+            0xFB => self.regs.E = self.SET(self.regs.E, 7),
+            0xFC => self.regs.H = self.SET(self.regs.H, 7),
+            0xFD => self.regs.L = self.SET(self.regs.L, 7),
+            0xFE => set_reg16!(H, L, self.SET(read_ind!(get_reg16!(H, L)), 7)),
+        }
     }
 
     // Util
@@ -536,6 +782,101 @@ impl CPU {
     fn SCF(&mut self) {
         self.regs.setFlag(Flag::C);
         self.regs.clearFlags(Flag::N as u8 | Flag::H as u8)
+    }
+
+    #[inline]
+    fn SWAP(&self, value: u8) -> u8 {
+        return (value << 4) | (value & 0xF);
+    }
+
+    #[inline]
+    fn RLC(&mut self, value: u8) -> u8 {
+        self.regs.changeFlag(value >> 7 == 1, Flag::C);
+        let return_val = (value << 1) | (value >> 7);
+
+        self.regs.changeFlag(return_val == 0, Flag::Z);
+        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        return_val
+    }
+
+    #[inline]
+    fn RL(&mut self, value: u8) -> u8 {
+        let old_c = self.regs.getFlag(Flag::C) as u8;
+        self.regs.changeFlag(value >> 7 == 1, Flag::C);
+        let return_val = (value << 1) | old_c as u8;
+        
+        self.regs.changeFlag(return_val == 0, Flag::Z);
+        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        return_val
+    }
+
+    #[inline]
+    fn RRC(&mut self, value: u8) -> u8 {
+        self.regs.changeFlag(value & 0x1 == 1, Flag::C);
+        let return_val = (value >> 1) | ((value & 0x1) << 7);
+
+        self.regs.changeFlag(return_val == 0, Flag::Z);
+        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        return_val
+    }
+
+    #[inline]
+    fn RR(&mut self, value: u8) -> u8 {
+        let old_c = self.regs.getFlag(Flag::C) as u8;
+        self.regs.changeFlag(value & 0x1 == 1, Flag::C);
+        let return_val = (value >> 1) | ((old_c as u8) << 7);
+        
+        self.regs.changeFlag(return_val == 0, Flag::Z);
+        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        return_val
+    }
+
+    #[inline]
+    fn SLA(&mut self, value: u8) -> u8 {
+        self.regs.changeFlag(value >> 7 == 1, Flag::C);
+        let return_val = value << 1;
+
+        self.regs.changeFlag(return_val == 0, Flag::Z);
+        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        return_val
+    }
+
+    #[inline]
+    fn SRA(&mut self, value: u8) -> u8 {
+        self.regs.changeFlag(value & 0x1 == 1, Flag::C);
+        let return_val = (value >> 1) | (value & 0x10);
+
+        self.regs.changeFlag(return_val == 0, Flag::Z);
+        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        return_val
+    }
+
+    #[inline]
+    fn SRL(&mut self, value: u8) -> u8 {
+        self.regs.changeFlag(value & 0x1 == 1, Flag::C);
+        let return_val = value >> 1;
+
+        self.regs.changeFlag(return_val == 0, Flag::Z);
+        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        return_val
+    }
+
+    #[inline]
+    fn BIT(&mut self, value: u8, bit: u8) {
+        self.regs.changeFlag(value & (1 << bit) == 0, Flag::Z);
+
+        self.regs.clearFlag(Flag::N);
+        self.regs.setFlag(Flag::H);
+    }
+
+    #[inline]
+    fn SET(&self, value: u8, bit: u8) -> u8 {
+        value | (1 << bit)
+    }
+
+    #[inline]
+    fn RES(&self, value: u8, bit: u8) -> u8 {
+        value & !(1 << bit)
     }
 
     #[inline]
