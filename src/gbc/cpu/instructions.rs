@@ -12,8 +12,8 @@ impl CPU {
         macro_rules! get_reg16 { ($high:ident, $low:ident) => { 
             (self.regs.$high as u16) << 8 | (self.regs.$low as u16)
         } }
-        macro_rules! set_reg16 { ($high:ident, $low:ident, $value:expr) => { 
-            { self.regs.$high = ($value >> 8) as u8; self.regs.$low = ($value & 0xFF) as u8; }
+        macro_rules! set_reg16 { ($high:ident, $low:ident, $value:expr) => {
+            { let value = $value; self.regs.$high = (value >> 8) as u8; self.regs.$low = (value & 0xFF) as u8; }
         } }
 
         // Memory Macros
