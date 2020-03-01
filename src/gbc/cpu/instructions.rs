@@ -887,7 +887,7 @@ impl CPU {
 
     #[inline]
     fn CALL(&mut self, mmu: &mut MMU) -> u16 {
-        self.stack_push16(mmu, self.regs.PC.wrapping_add(1));
+        self.stack_push16(mmu, self.regs.PC.wrapping_add(2));
         self.read_next_word(mmu)
     }
 
