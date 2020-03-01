@@ -59,31 +59,31 @@ impl Registers {
         }
     }
 
-    pub fn changeFlag(&mut self, condition: bool, flag: Flag) {
+    pub fn change_flag(&mut self, condition: bool, flag: Flag) {
         if condition {
-            self.setFlag(flag);
+            self.set_flag(flag);
         } else {
-            self.clearFlag(flag);
+            self.clear_flag(flag);
         }
     }
 
     #[inline]
-    pub fn setFlag(&mut self, flag: Flag) {
+    pub fn set_flag(&mut self, flag: Flag) {
         self.F |= flag as u8;
     }
 
     #[inline]
-    pub fn setFlags(&mut self, flags: u8) {
+    pub fn set_flags(&mut self, flags: u8) {
         self.F |= flags;
     }
 
     #[inline]
-    pub fn clearFlag(&mut self, flag: Flag) {
+    pub fn clear_flag(&mut self, flag: Flag) {
         self.F &= !(flag as u8);
     }
 
     #[inline]
-    pub fn clearFlags(&mut self, flags: u8) {
+    pub fn clear_flags(&mut self, flags: u8) {
         self.F &= !flags;
     }
 

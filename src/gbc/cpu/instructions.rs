@@ -32,19 +32,19 @@ impl CPU {
             self.regs.A = self.regs.A $op $operand;
         }}
         macro_rules! flags { ($Z:expr, $N:expr, $H:expr, $C:expr) => {
-            self.regs.changeFlag($Z, Flag::Z);
-            self.regs.changeFlag($N, Flag::N);
-            self.regs.changeFlag($H, Flag::H);
-            self.regs.changeFlag($C, Flag::C);
+            self.regs.change_flag($Z, Flag::Z);
+            self.regs.change_flag($N, Flag::N);
+            self.regs.change_flag($H, Flag::H);
+            self.regs.change_flag($C, Flag::C);
         }}
         
         // ALU Operation Macros
         macro_rules! INC_DEC { ($reg:ident, $op:ident) => { {
             let result = self.regs.$reg.$op(1);
         
-            self.regs.changeFlag(result == 0, Flag::Z);
-            self.regs.clearFlag(Flag::N);
-            self.regs.changeFlag(((self.regs.$reg & 0xF).$op(1)) > 0xF, Flag::H);
+            self.regs.change_flag(result == 0, Flag::Z);
+            self.regs.clear_flag(Flag::N);
+            self.regs.change_flag(((self.regs.$reg & 0xF).$op(1)) > 0xF, Flag::H);
 
             self.regs.$reg = result
         } }}
@@ -699,10 +699,10 @@ impl CPU {
     fn ADD(&mut self, operand: u8) {
         let result: u16 = (self.regs.A as u16).wrapping_add(operand as i8 as u16);
         
-        self.regs.changeFlag(result & 0xFF == 0, Flag::Z);
-        self.regs.clearFlag(Flag::N);
-        self.regs.changeFlag(((self.regs.A & 0xF).wrapping_add(operand & 0xF)) > 0xF, Flag::H);
-        self.regs.changeFlag(result > 0xFF, Flag::C);
+        self.regs.change_flag(result & 0xFF == 0, Flag::Z);
+        self.regs.clear_flag(Flag::N);
+        self.regs.change_flag(((self.regs.A & 0xF).wrapping_add(operand & 0xF)) > 0xF, Flag::H);
+        self.regs.change_flag(result > 0xFF, Flag::C);
 
         self.regs.A = (result & 0xFF) as u8;
     }
@@ -712,11 +712,11 @@ impl CPU {
         let C: u8 = self.regs.F >> 4;
         let result: u16 = (self.regs.A as u16).wrapping_add(operand as i8 as u16).wrapping_add(C as u16);
         
-        self.regs.changeFlag(result & 0xFF == 0, Flag::Z);
-        self.regs.clearFlag(Flag::N);
-        self.regs.changeFlag(((self.regs.A & 0xF).wrapping_add(operand & 0xF)
+        self.regs.change_flag(result & 0xFF == 0, Flag::Z);
+        self.regs.clear_flag(Flag::N);
+        self.regs.change_flag(((self.regs.A & 0xF).wrapping_add(operand & 0xF)
                                         .wrapping_add(C)) > 0xF,Flag::H);
-        self.regs.changeFlag(result > 0xFF, Flag::C);
+        self.regs.change_flag(result > 0xFF, Flag::C);
 
         self.regs.A = (result & 0xFF) as u8;
     }
@@ -734,9 +734,9 @@ impl CPU {
         let result: u32 = (HL as u32).wrapping_add(operand as u32);
 
         // Z Flag Not Affected
-        self.regs.clearFlag(Flag::N);
-        self.regs.changeFlag((HL & 0xFFF).wrapping_add(operand & 0xFFF) > 0xFFF, Flag::H);
-        self.regs.changeFlag(result > 0xFFFF, Flag::C);
+        self.regs.clear_flag(Flag::N);
+        self.regs.change_flag((HL & 0xFFF).wrapping_add(operand & 0xFFF) > 0xFFF, Flag::H);
+        self.regs.change_flag(result > 0xFFFF, Flag::C);
 
         set_reg16!(self.regs, H, L)((result & 0xFFFF) as u16);
     }
@@ -746,9 +746,9 @@ impl CPU {
         let operand: u16 = self.read_next_byte(mmu) as u16;
         let result: u32 = (self.regs.SP as u32).wrapping_add(operand as u32);
 
-        self.regs.clearFlags(Flag::Z as u8 | Flag::N as u8);
-        self.regs.changeFlag((self.regs.SP & 0xFFF).wrapping_add(operand & 0xFFF) > 0xFFF, Flag::H);
-        self.regs.changeFlag(result > 0xFFFF, Flag::C);
+        self.regs.clear_flags(Flag::Z as u8 | Flag::N as u8);
+        self.regs.change_flag((self.regs.SP & 0xFFF).wrapping_add(operand & 0xFFF) > 0xFFF, Flag::H);
+        self.regs.change_flag(result > 0xFFFF, Flag::C);
 
         self.regs.SP = (result & 0xFFFF) as u16;
     }
@@ -760,33 +760,33 @@ impl CPU {
         let C = self.regs.getFlag(Flag::C);
         let H = self.regs.getFlag(Flag::H);
         if N {
-            if C || self.regs.A > 0x99 { self.regs.A = self.regs.A.wrapping_add(0x60); self.regs.setFlag(Flag::C) }
+            if C || self.regs.A > 0x99 { self.regs.A = self.regs.A.wrapping_add(0x60); self.regs.set_flag(Flag::C) }
             if H || self.regs.A & 0x0F > 0x09 { self.regs.A = self.regs.A.wrapping_add(0x06); }
         } else {
             if C { self.regs.A = self.regs.A.wrapping_sub(0x60); }
             if H { self.regs.A = self.regs.A.wrapping_sub(0x06); }
         }
 
-        self.regs.changeFlag(self.regs.A == 0, Flag::Z);
-        self.regs.clearFlag(Flag::H);
+        self.regs.change_flag(self.regs.A == 0, Flag::Z);
+        self.regs.clear_flag(Flag::H);
     }
 
     #[inline]
     fn CPL(&mut self) {
         self.regs.A = !self.regs.A;
-        self.regs.setFlags(Flag::N as u8 | Flag::H as u8);
+        self.regs.set_flags(Flag::N as u8 | Flag::H as u8);
     }
 
     #[inline]
     fn CCF(&mut self) {
-        self.regs.changeFlag(!self.regs.getFlag(Flag::C), Flag::C);
-        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        self.regs.change_flag(!self.regs.getFlag(Flag::C), Flag::C);
+        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
     }
 
     #[inline]
     fn SCF(&mut self) {
-        self.regs.setFlag(Flag::C);
-        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8)
+        self.regs.set_flag(Flag::C);
+        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8)
     }
 
     #[inline]
@@ -796,82 +796,82 @@ impl CPU {
 
     #[inline]
     fn RLC(&mut self, value: u8) -> u8 {
-        self.regs.changeFlag(value >> 7 == 1, Flag::C);
+        self.regs.change_flag(value >> 7 == 1, Flag::C);
         let return_val = (value << 1) | (value >> 7);
 
-        self.regs.changeFlag(return_val == 0, Flag::Z);
-        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        self.regs.change_flag(return_val == 0, Flag::Z);
+        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
         return_val
     }
 
     #[inline]
     fn RL(&mut self, value: u8) -> u8 {
         let old_c = self.regs.getFlag(Flag::C) as u8;
-        self.regs.changeFlag(value >> 7 == 1, Flag::C);
+        self.regs.change_flag(value >> 7 == 1, Flag::C);
         let return_val = (value << 1) | old_c as u8;
         
-        self.regs.changeFlag(return_val == 0, Flag::Z);
-        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        self.regs.change_flag(return_val == 0, Flag::Z);
+        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
         return_val
     }
 
     #[inline]
     fn RRC(&mut self, value: u8) -> u8 {
-        self.regs.changeFlag(value & 0x1 == 1, Flag::C);
+        self.regs.change_flag(value & 0x1 == 1, Flag::C);
         let return_val = (value >> 1) | ((value & 0x1) << 7);
 
-        self.regs.changeFlag(return_val == 0, Flag::Z);
-        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        self.regs.change_flag(return_val == 0, Flag::Z);
+        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
         return_val
     }
 
     #[inline]
     fn RR(&mut self, value: u8) -> u8 {
         let old_c = self.regs.getFlag(Flag::C) as u8;
-        self.regs.changeFlag(value & 0x1 == 1, Flag::C);
+        self.regs.change_flag(value & 0x1 == 1, Flag::C);
         let return_val = (value >> 1) | ((old_c as u8) << 7);
         
-        self.regs.changeFlag(return_val == 0, Flag::Z);
-        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        self.regs.change_flag(return_val == 0, Flag::Z);
+        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
         return_val
     }
 
     #[inline]
     fn SLA(&mut self, value: u8) -> u8 {
-        self.regs.changeFlag(value >> 7 == 1, Flag::C);
+        self.regs.change_flag(value >> 7 == 1, Flag::C);
         let return_val = value << 1;
 
-        self.regs.changeFlag(return_val == 0, Flag::Z);
-        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        self.regs.change_flag(return_val == 0, Flag::Z);
+        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
         return_val
     }
 
     #[inline]
     fn SRA(&mut self, value: u8) -> u8 {
-        self.regs.changeFlag(value & 0x1 == 1, Flag::C);
+        self.regs.change_flag(value & 0x1 == 1, Flag::C);
         let return_val = (value >> 1) | (value & 0x10);
 
-        self.regs.changeFlag(return_val == 0, Flag::Z);
-        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        self.regs.change_flag(return_val == 0, Flag::Z);
+        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
         return_val
     }
 
     #[inline]
     fn SRL(&mut self, value: u8) -> u8 {
-        self.regs.changeFlag(value & 0x1 == 1, Flag::C);
+        self.regs.change_flag(value & 0x1 == 1, Flag::C);
         let return_val = value >> 1;
 
-        self.regs.changeFlag(return_val == 0, Flag::Z);
-        self.regs.clearFlags(Flag::N as u8 | Flag::H as u8);
+        self.regs.change_flag(return_val == 0, Flag::Z);
+        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
         return_val
     }
 
     #[inline]
     fn BIT(&mut self, value: u8, bit: u8) {
-        self.regs.changeFlag(value & (1 << bit) == 0, Flag::Z);
+        self.regs.change_flag(value & (1 << bit) == 0, Flag::Z);
 
-        self.regs.clearFlag(Flag::N);
-        self.regs.setFlag(Flag::H);
+        self.regs.clear_flag(Flag::N);
+        self.regs.set_flag(Flag::H);
     }
 
     #[inline]
