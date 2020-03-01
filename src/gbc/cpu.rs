@@ -2,7 +2,7 @@
 mod registers;
 mod instructions;
 
-use super::Memory;
+use super::MMU;
 use registers::Registers;
 use registers::Flag;
 
@@ -17,7 +17,7 @@ impl CPU {
         }
     }
 
-    pub fn emulate_instr(&mut self, mem: &mut Memory) {
+    pub fn emulate_instr(&mut self, mem: &mut MMU) {
         self.exec(mem);
     }
 }

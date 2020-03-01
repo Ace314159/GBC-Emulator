@@ -4,15 +4,15 @@ mod header;
 use mbc::MemoryBankController;
 use header::Header;
 
-pub struct Memory {
+pub struct MMU {
     header: Header,
     mbc: Box<dyn MemoryBankController>,
 }
 
-impl Memory {
+impl MMU {
     pub fn new(rom: Vec<u8>) -> Self {
         let header = Header::new(&rom);
-        Memory {
+        MMU {
             mbc: mbc::get_mbc(header.get_cartridge_type(), rom),
             header,
         }

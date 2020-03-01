@@ -8,6 +8,6 @@ pub trait MemoryBankController {
 pub fn get_mbc(cartridge_type: u8, rom: Vec<u8>) -> Box<dyn MemoryBankController> {
     match cartridge_type {
         0 => Box::new(none::None::new(rom)),
-        _ => panic!("Unsupport MBC"),
+        _ => panic!("Unsupported MBC {}", cartridge_type),
     }
 }

@@ -1,13 +1,13 @@
-mod memory;
+mod mmu;
 mod cpu;
 
-use memory::Memory;
+use mmu::MMU;
 use cpu::CPU;
 
 use std::fs;
 
 pub struct GBC {
-    mem: Memory,
+    mmu: MMU,
     cpu: CPU,
 }
 
@@ -19,12 +19,12 @@ impl GBC {
             std::ptr::copy(boot_rom.as_ptr(), rom.as_mut_ptr(), boot_rom.len());
         }
         GBC {
-            mem: Memory::new(rom),
+            mmu: MMU::new(rom),
             cpu: CPU::new(),
         }
     }
 
     pub fn emulate(&mut self) {
-        self.cpu.emulate_instr(&mut self.mem);
+        self.cpu.emulate_instr(&mut self.mmu);
     }
 }

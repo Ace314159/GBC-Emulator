@@ -18,6 +18,6 @@ impl MemoryBankController for None {
     }
     
     fn write(&mut self, addr: u16, value: u8) {
-        self.rom[addr as usize] = value;
+        // Cannot write to ROM
     }
 }
