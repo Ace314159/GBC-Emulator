@@ -14,10 +14,16 @@ impl None {
 
 impl MemoryBankController for None {
     fn read(&self, addr: u16) -> u8 {
-        return self.rom[addr as usize];
+        if addr < 0x8000 {
+            self.rom[addr as usize]
+        } else {
+            0 // TODO: Add External RAM Support
+        }
     }
     
     fn write(&mut self, addr: u16, value: u8) {
-        // Cannot write to ROM
+        if addr > 0x8000 {
+            panic!("External RAM not supported!");
+        }
     }
 }
