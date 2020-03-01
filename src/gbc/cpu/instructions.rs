@@ -39,9 +39,6 @@ impl CPU {
         }}
         
         // ALU Operation Macros
-        macro_rules! CP { ($operand:expr) => { 
-            { let old_a = self.regs.A; self.ADD((!$operand).wrapping_add(1)); self.regs.A = old_a; }
-        }}
         macro_rules! INC_DEC { ($reg:ident, $op:ident) => { {
             let result = self.regs.$reg.$op(1);
         
@@ -254,15 +251,15 @@ impl CPU {
             0xAE => { a_op!(^, read_ind!(get_reg16!(H, L))); flags!(self.regs.A == 0, false, false, false); }
             0xEE => { a_op!(^, self.read_next_byte(mmu)); flags!(self.regs.A == 0, false, false, false); }
             // CP A, n
-            0xBF => CP!(self.regs.A),
-            0xB8 => CP!(self.regs.B),
-            0xB9 => CP!(self.regs.C),
-            0xBA => CP!(self.regs.D),
-            0xBB => CP!(self.regs.E),
-            0xBC => CP!(self.regs.H),
-            0xBD => CP!(self.regs.L),
-            0xBE => CP!(self.read_byte(mmu, get_reg16!(H, L))),
-            0xFE => { let operand = self.read_next_byte(mmu); CP!(operand); },
+            0xBF => self.CP(self.regs.A),
+            0xB8 => self.CP(self.regs.B),
+            0xB9 => self.CP(self.regs.C),
+            0xBA => self.CP(self.regs.D),
+            0xBB => self.CP(self.regs.E),
+            0xBC => self.CP(self.regs.H),
+            0xBD => self.CP(self.regs.L),
+            0xBE => self.CP(self.read_byte(mmu, get_reg16!(H, L))),
+            0xFE => { let operand = self.read_next_byte(mmu); self.CP(operand); },
             // INC A, n
             0x3C => INC_DEC!(A, wrapping_add),
             0x04 => INC_DEC!(B, wrapping_add),
@@ -355,8 +352,9 @@ impl CPU {
             0xC8 => conditional!(Z, self.RET(mmu), self.regs.PC),
             0xD0 => n_conditional!(C, self.RET(mmu), self.regs.PC),
             0xD8 => conditional!(C, self.RET(mmu), self.regs.PC),
+            0xD9 => { self.regs.PC = self.RET(mmu); /* TODO: Enable Interrupts */ },
 
-            _ => println!("Unoffical Opcode {:X}", opcode),
+            _ => panic!("Unoffical Opcode {:X}", opcode),
         };
     }
 
@@ -724,6 +722,13 @@ impl CPU {
     }
 
     #[inline]
+    fn CP(&mut self, operand: u8) {
+        let old_A = self.regs.A;
+        self.ADD((!operand).wrapping_add(1));
+        self.regs.A = old_A;
+    }
+
+    #[inline]
     fn ADD16(&mut self, operand: u16) {
         let HL = get_reg16!(self.regs, H, L);
         let result: u32 = (HL as u32).wrapping_add(operand as u32);
@@ -880,7 +885,7 @@ impl CPU {
     }
 
     #[inline]
-    fn relative(&mut self, mmu: &MMU) -> u16{
+    fn relative(&mut self, mmu: &MMU) -> u16 {
         let val = self.read_next_byte(mmu) as i8;
         self.regs.PC.wrapping_add(val as u16)
     }
