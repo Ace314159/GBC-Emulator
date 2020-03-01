@@ -699,7 +699,7 @@ impl CPU {
     fn ADD(&mut self, operand: u8) {
         let result: u16 = (self.regs.A as u16).wrapping_add(operand as i8 as u16);
         
-        self.regs.changeFlag(result == 0, Flag::Z);
+        self.regs.changeFlag(result & 0xFF == 0, Flag::Z);
         self.regs.clearFlag(Flag::N);
         self.regs.changeFlag(((self.regs.A & 0xF).wrapping_add(operand & 0xF)) > 0xF, Flag::H);
         self.regs.changeFlag(result > 0xFF, Flag::C);
@@ -712,7 +712,7 @@ impl CPU {
         let C: u8 = self.regs.F >> 4;
         let result: u16 = (self.regs.A as u16).wrapping_add(operand as i8 as u16).wrapping_add(C as u16);
         
-        self.regs.changeFlag(result == 0, Flag::Z);
+        self.regs.changeFlag(result & 0xFF == 0, Flag::Z);
         self.regs.clearFlag(Flag::N);
         self.regs.changeFlag(((self.regs.A & 0xF).wrapping_add(operand & 0xF)
                                         .wrapping_add(C)) > 0xF,Flag::H);
