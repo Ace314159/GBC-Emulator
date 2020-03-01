@@ -220,6 +220,7 @@ impl CPU {
             0x9C => self.ADC(!self.regs.H.wrapping_add(1)),
             0x9D => self.ADC(!self.regs.L.wrapping_add(1)),
             0x9E => self.ADC(!self.read_byte(mmu, get_reg16!(H, L)).wrapping_add(1)),
+            0xDE => { let operand = self.read_next_byte(mmu); self.ADC(!operand.wrapping_add(1)); },
             // AND A, n
             0xA7 => { a_op!(&, self.regs.A); flags!(self.regs.A == 0, false, true, false); }
             0xA0 => { a_op!(&, self.regs.B); flags!(self.regs.A == 0, false, true, false); }
