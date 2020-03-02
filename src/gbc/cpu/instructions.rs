@@ -11,7 +11,7 @@ impl CPU {
             (self.regs.$high as u16) << 8 | (self.regs.$low as u16)
         } }
         macro_rules! set_reg16 { ($high:ident, $low:ident, $value:expr) => {
-            { let value = $value; self.regs.$high = (value >> 8) as u8; self.regs.$low = (value & 0xFF) as u8; }
+            { let value = $value; self.regs.$high = (value >> 8) as u8; self.regs.$low = value as u8; }
         } }
 
         // Memory Macros
@@ -44,7 +44,7 @@ impl CPU {
         
             self.regs.change_flag(result == 0, Flag::Z);
             self.regs.clear_flag(Flag::N);
-            self.regs.change_flag(((self.regs.$reg & 0xF).$op(1)) > 0xF, Flag::H);
+            self.regs.change_flag(((self.regs.$reg ^ 1 ^ result) & 0x10) != 0, Flag::H);
 
             self.regs.$reg = result
         } }}
@@ -167,7 +167,7 @@ impl CPU {
 
             // Stack
             0x08 => mem_reg16!(self.read_next_word(mmu), SP),
-            0xF8 => set_reg16!(H, L, self.regs.SP.wrapping_add(self.read_next_byte(mmu) as u16)),
+            0xF8 => set_reg16!(H, L, self.ADD_SP(mmu)),
             0xF9 => self.regs.SP = get_reg16!(H, L),
             // POP nn
             0xC1 => set_reg16!(B, C, self.stack_pop16(mmu)),
@@ -287,7 +287,7 @@ impl CPU {
             0x29 => self.ADD16(get_reg16!(H, L)),
             0x39 => self.ADD16(self.regs.SP),
             // ADD SP, n
-            0xE8 => self.ADD_SP(mmu),
+            0xE8 => self.regs.SP = self.ADD_SP(mmu),
             // INC nn
             0x03 => INC_DEC16!(B, C, wrapping_add),
             0x13 => INC_DEC16!(D, E, wrapping_add),
@@ -307,7 +307,7 @@ impl CPU {
             0x37 => self.SCF(),
             0x00 => {}, // NOP
             0x76 => { println!("HALT"); }, // HALT
-            0x10 => { println!("STOP"); }, // stack_pop16
+            0x10 => { println!("STOP"); }, // STOP
             0xF3 => { println!("DI"); }, // DI
             0xFB => { println!("EI"); }, // EI
             
@@ -365,7 +365,7 @@ impl CPU {
             (self.regs.$high as u16) << 8 | (self.regs.$low as u16)
         } }
         macro_rules! set_reg16 { ($high:ident, $low:ident, $value:expr) => {
-            { let value = $value; self.regs.$high = (value >> 8) as u8; self.regs.$low = (value & 0xFF) as u8; }
+            { let value = $value; self.regs.$high = (value >> 8) as u8; self.regs.$low = value as u8; }
         } }
 
         // Addressing Mode Macros
@@ -705,10 +705,10 @@ impl CPU {
         
         self.regs.change_flag(result & 0xFF == 0, Flag::Z);
         self.regs.clear_flag(Flag::N);
-        self.regs.change_flag(((self.regs.A & 0xF).wrapping_add(operand & 0xF)) > 0xF, Flag::H);
+        self.regs.change_flag(((self.regs.A ^ operand ^ result as u8) & 0x10) != 0, Flag::H);
         self.regs.change_flag(result > 0xFF, Flag::C);
 
-        self.regs.A = (result & 0xFF) as u8;
+        self.regs.A = result as u8;
     }
 
     #[inline]
@@ -718,11 +718,10 @@ impl CPU {
         
         self.regs.change_flag(result & 0xFF == 0, Flag::Z);
         self.regs.clear_flag(Flag::N);
-        self.regs.change_flag(((self.regs.A & 0xF).wrapping_add(operand & 0xF)
-                                        .wrapping_add(C)) > 0xF,Flag::H);
+        self.regs.change_flag((self.regs.A ^ operand ^ result as u8) & 0x10 != 0,Flag::H);
         self.regs.change_flag(result > 0xFF, Flag::C);
 
-        self.regs.A = (result & 0xFF) as u8;
+        self.regs.A = result as u8;
     }
 
     #[inline]
@@ -751,22 +750,22 @@ impl CPU {
 
         // Z Flag Not Affected
         self.regs.clear_flag(Flag::N);
-        self.regs.change_flag((HL & 0xFFF).wrapping_add(operand & 0xFFF) > 0xFFF, Flag::H);
+        self.regs.change_flag((HL ^ operand ^ result as u16) & 0x1000 != 0, Flag::H);
         self.regs.change_flag(result > 0xFFFF, Flag::C);
 
-        set_reg16!(self.regs, H, L)((result & 0xFFFF) as u16);
+        set_reg16!(self.regs, H, L)(result as u16);
     }
 
     #[inline]
-    fn ADD_SP(&mut self, mmu: &MMU) {
-        let operand: u16 = self.read_next_byte(mmu) as u16;
+    fn ADD_SP(&mut self, mmu: &MMU) -> u16 {
+        let operand = self.read_next_byte(mmu) as i8 as u16;
         let result: u32 = (self.regs.SP as u32).wrapping_add(operand as u32);
 
         self.regs.clear_flags(Flag::Z as u8 | Flag::N as u8);
-        self.regs.change_flag((self.regs.SP & 0xFFF).wrapping_add(operand & 0xFFF) > 0xFFF, Flag::H);
-        self.regs.change_flag(result > 0xFFFF, Flag::C);
+        self.regs.change_flag((self.regs.SP ^ operand ^ (result & 0xFFFF) as u16) & 0x10 != 0, Flag::H);
+        self.regs.change_flag(((self.regs.SP ^ operand ^ result as u16) & 0x100) != 0, Flag::C);
 
-        self.regs.SP = (result & 0xFFFF) as u16;
+        result as u16
     }
 
     // From https://forums.nesdev.com/viewtopic.php?t=15944
