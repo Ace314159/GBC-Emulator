@@ -54,10 +54,10 @@ impl CPU {
 
         // Jump Macros
         macro_rules! conditional { ($flag:ident, $pass:expr, $fail:expr) => {
-            if self.regs.getFlag(Flag::$flag) { self.regs.PC = $pass } else { self.regs.PC = $fail }
+            if self.regs.get_flag(Flag::$flag) { self.regs.PC = $pass } else { self.regs.PC = $fail }
         }}
         macro_rules! n_conditional { ($flag:ident, $pass:expr, $fail:expr) => {
-            if !self.regs.getFlag(Flag::$flag) { self.regs.PC = $pass } else { self.regs.PC = $fail }
+            if !self.regs.get_flag(Flag::$flag) { self.regs.PC = $pass } else { self.regs.PC = $fail }
         }}
 
         let opcode = self.read_next_byte(mmu);
@@ -210,7 +210,7 @@ impl CPU {
             0x94 => self.SUB(self.regs.H),
             0x95 => self.SUB(self.regs.L),
             0x96 => self.SUB(self.read_byte(mmu, get_reg16!(H, L))),
-            0xD6 => { let operand = self.read_next_byte(mmu); self.ADD(operand); },
+            0xD6 => { let operand = self.read_next_byte(mmu); self.SUB(operand); },
             // SBC A, n
             0x9F => self.SBC(self.regs.A),
             0x98 => self.SBC(self.regs.B),
@@ -701,7 +701,7 @@ impl CPU {
     // Operations
     #[inline]
     fn ADD(&mut self, operand: u8) {
-        let result: u16 = (self.regs.A as u16).wrapping_add(operand as i8 as u16);
+        let result: u16 = self.regs.A as u16 + operand as u16;
         
         self.regs.change_flag(result & 0xFF == 0, Flag::Z);
         self.regs.clear_flag(Flag::N);
@@ -713,8 +713,8 @@ impl CPU {
 
     #[inline]
     fn ADC(&mut self, operand: u8) {
-        let C: u8 = self.regs.F >> 4;
-        let result: u16 = (self.regs.A as u16).wrapping_add(operand as i8 as u16).wrapping_add(C as u16);
+        let C: u8 = self.regs.get_flag(Flag::C) as u8;
+        let result: u16 = self.regs.A as u16 + operand as u16 + C as u16;
         
         self.regs.change_flag(result & 0xFF == 0, Flag::Z);
         self.regs.clear_flag(Flag::N);
@@ -726,14 +726,27 @@ impl CPU {
 
     #[inline]
     fn SUB(&mut self, operand: u8) {
-        self.ADD((!operand).wrapping_add(1));
+        let result = self.regs.A.wrapping_sub(operand);
+        
+        self.regs.change_flag(result == 0, Flag::Z);
         self.regs.set_flag(Flag::N);
+        self.regs.change_flag(self.regs.A & 0x0F < operand & 0x0F, Flag::H);
+        self.regs.change_flag(self.regs.A < operand, Flag::C);
+
+        self.regs.A = result;
     }
 
     #[inline]
     fn SBC(&mut self, operand: u8) {
-        self.ADC((!operand).wrapping_add(1));
+        let C: u8 = self.regs.get_flag(Flag::C) as u8;
+        let result = self.regs.A.wrapping_sub(operand).wrapping_sub(C);
+        
+        self.regs.change_flag(result == 0, Flag::Z);
         self.regs.set_flag(Flag::N);
+        self.regs.change_flag(self.regs.A & 0x0F < (operand & 0x0F) + C,Flag::H);
+        self.regs.change_flag((self.regs.A as u16) < (operand as u16) + (C as u16), Flag::C);
+
+        self.regs.A = result;
     }
 
     #[inline]
@@ -771,9 +784,9 @@ impl CPU {
     // From https://forums.nesdev.com/viewtopic.php?t=15944
     #[inline]
     fn DAA(&mut self) {
-        let N = self.regs.getFlag(Flag::N);
-        let C = self.regs.getFlag(Flag::C);
-        let H = self.regs.getFlag(Flag::H);
+        let N = self.regs.get_flag(Flag::N);
+        let C = self.regs.get_flag(Flag::C);
+        let H = self.regs.get_flag(Flag::H);
         if !N {
             if C || self.regs.A > 0x99 { self.regs.A = self.regs.A.wrapping_add(0x60); self.regs.set_flag(Flag::C) }
             if H || self.regs.A & 0x0F > 0x09 { self.regs.A = self.regs.A.wrapping_add(0x06); }
@@ -794,7 +807,7 @@ impl CPU {
 
     #[inline]
     fn CCF(&mut self) {
-        self.regs.change_flag(!self.regs.getFlag(Flag::C), Flag::C);
+        self.regs.change_flag(!self.regs.get_flag(Flag::C), Flag::C);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
     }
 
@@ -821,7 +834,7 @@ impl CPU {
 
     #[inline]
     fn RL(&mut self, value: u8) -> u8 {
-        let old_c = self.regs.getFlag(Flag::C) as u8;
+        let old_c = self.regs.get_flag(Flag::C) as u8;
         self.regs.change_flag(value & 0x80 != 0, Flag::C);
         let return_val = (value << 1) | old_c as u8;
         
@@ -842,7 +855,7 @@ impl CPU {
 
     #[inline]
     fn RR(&mut self, value: u8) -> u8 {
-        let old_c = self.regs.getFlag(Flag::C) as u8;
+        let old_c = self.regs.get_flag(Flag::C) as u8;
         self.regs.change_flag(value & 0x1 == 1, Flag::C);
         let return_val = (value >> 1) | ((old_c as u8) << 7);
         

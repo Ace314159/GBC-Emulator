@@ -27,7 +27,6 @@ pub enum Flag {
     N = 0x40,
     H = 0x20,
     C = 0x10,
-
 }
 
 pub struct Registers {
@@ -88,7 +87,7 @@ impl Registers {
     }
 
     #[inline]
-    pub fn getFlag(&self, flag: Flag) -> bool {
+    pub fn get_flag(&self, flag: Flag) -> bool {
         return self.F & (flag as u8) != 0;
     }
 }
