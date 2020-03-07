@@ -10,11 +10,11 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceRoot}/target/debug/gbc-emulator.exe",
-            "args": [],
+            "args": [">", "ROMs/stdout.log"],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
-            "environment": [{"name": "RUST_BACKTRACE", "value": "1"}],
-            "externalConsole": false,
+            "environment": [{"name": "RUST_BACKTRACE", "value": "0"}],
+            "externalConsole": true,
             "sourceFileMap": {
                 "/rustc/5e1a799842ba6ed4a57e91f7ab9435947482f7d8": "${env:HOME}${env:USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust"
             }
