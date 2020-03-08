@@ -28,7 +28,6 @@ impl MMU {
         else { self.ram[addr as usize - 0x8000] = value; }
 
         if addr == 0xFF02 && value == 0x81 {
-            println!("{}", self.ram[0xFF01 - 0x8000] as char);
             self.ram[0xFF02 - 0x8000] &= !0x80;
         }
     }

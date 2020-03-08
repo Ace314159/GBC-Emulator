@@ -954,7 +954,7 @@ impl CPU {
 
     #[inline]
     fn RST(&mut self, mmu: &mut MMU, addr: u16) {
-        self.stack_push16(mmu, self.regs.PC.wrapping_add(1));
+        self.stack_push16(mmu, self.regs.PC);
         self.regs.PC = addr;
     }
 
