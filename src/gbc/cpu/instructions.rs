@@ -321,10 +321,10 @@ impl CPU {
             0xFB => { println!("EI"); }, // EI
             
             // Rotates
-            0x07 => self.regs.A = self.RLC(self.regs.A),
-            0x17 => self.regs.A = self.RL(self.regs.A),
-            0x0F => self.regs.A = self.RRC(self.regs.A),
-            0x1F => self.regs.A = self.RR(self.regs.A),
+            0x07 => { self.regs.A = self.RLC(self.regs.A); self.regs.clear_flag(Flag::Z); },
+            0x17 => { self.regs.A = self.RL(self.regs.A); self.regs.clear_flag(Flag::Z); },
+            0x0F => { self.regs.A = self.RRC(self.regs.A); self.regs.clear_flag(Flag::Z); },
+            0x1F => { self.regs.A = self.RR(self.regs.A); self.regs.clear_flag(Flag::Z); },
             
             // Jumps
             0xC3 => self.regs.PC = self.read_next_word(mmu),
@@ -823,7 +823,7 @@ impl CPU {
     #[inline]
     fn SCF(&mut self) {
         self.regs.set_flag(Flag::C);
-        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8)
+        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
     }
 
     #[inline]
