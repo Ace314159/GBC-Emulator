@@ -39,14 +39,23 @@ impl CPU {
         }}
         
         // ALU Operation Macros
-        macro_rules! INC_DEC { ($reg:ident, $op:ident) => { {
-            let result = self.regs.$reg.$op(1);
+        macro_rules! INC { ($reg:ident) => { {
+            let result = self.regs.$reg.wrapping_add(1);
         
-            self.regs.change_flag(result == 0, Flag::Z);
+            self.regs.change_flag(result & 0xFF == 0, Flag::Z);
             self.regs.clear_flag(Flag::N);
-            self.regs.change_flag(((self.regs.$reg ^ 1 ^ result) & 0x10) != 0, Flag::H);
+            self.regs.change_flag(((self.regs.$reg ^ 1 ^ result as u8) & 0x10) != 0, Flag::H);
 
-            self.regs.$reg = result
+            self.regs.$reg = result;
+        } }}
+        macro_rules! DEC { ($reg:ident) => { {
+            let result = self.regs.$reg.wrapping_sub(1);
+        
+            self.regs.change_flag(result & 0xFF == 0, Flag::Z);
+            self.regs.set_flag(Flag::N);
+            self.regs.change_flag(self.regs.$reg & 0x0F < 1, Flag::H);
+
+            self.regs.$reg = result;
         } }}
         macro_rules! INC_DEC16 { ($high:ident, $low:ident, $op: ident) => {
             { let value = get_reg16!($high, $low).$op(1); set_reg16!($high, $low, value); }
@@ -262,22 +271,22 @@ impl CPU {
             0xBE => self.CP(self.read_byte(mmu, get_reg16!(H, L))),
             0xFE => { let operand = self.read_next_byte(mmu); self.CP(operand); },
             // INC A, n
-            0x3C => INC_DEC!(A, wrapping_add),
-            0x04 => INC_DEC!(B, wrapping_add),
-            0x0C => INC_DEC!(C, wrapping_add),
-            0x14 => INC_DEC!(D, wrapping_add),
-            0x1C => INC_DEC!(E, wrapping_add),
-            0x24 => INC_DEC!(H, wrapping_add),
-            0x2C => INC_DEC!(L, wrapping_add),
+            0x3C => INC!(A),
+            0x04 => INC!(B),
+            0x0C => INC!(C),
+            0x14 => INC!(D),
+            0x1C => INC!(E),
+            0x24 => INC!(H),
+            0x2C => INC!(L),
             0x34 => INC_DEC16!(H, L, wrapping_add),
             // DEC A, n
-            0x3D => INC_DEC!(A, wrapping_sub),
-            0x05 => INC_DEC!(B, wrapping_sub),
-            0x0D => INC_DEC!(C, wrapping_sub),
-            0x15 => INC_DEC!(D, wrapping_sub),
-            0x1D => INC_DEC!(E, wrapping_sub),
-            0x25 => INC_DEC!(H, wrapping_sub),
-            0x2D => INC_DEC!(L, wrapping_sub),
+            0x3D => DEC!(A),
+            0x05 => DEC!(B),
+            0x0D => DEC!(C),
+            0x15 => DEC!(D),
+            0x1D => DEC!(E),
+            0x25 => DEC!(H),
+            0x2D => DEC!(L),
             0x35 => INC_DEC16!(H, L, wrapping_sub),
 
             // 16 Bit ALU
