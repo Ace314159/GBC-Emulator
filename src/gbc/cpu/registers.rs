@@ -58,6 +58,7 @@ impl Registers {
         }
     }
 
+    #[inline]
     pub fn change_flag(&mut self, condition: bool, flag: Flag) {
         if condition {
             self.set_flag(flag);

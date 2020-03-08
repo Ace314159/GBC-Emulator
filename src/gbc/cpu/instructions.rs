@@ -827,8 +827,12 @@ impl CPU {
     }
 
     #[inline]
-    fn SWAP(&self, value: u8) -> u8 {
-        return (value << 4) | (value & 0xF);
+    fn SWAP(&mut self, value: u8) -> u8 {
+        let return_val = (value << 4) | (value >> 4);
+
+        self.regs.change_flag(return_val == 0, Flag::Z);
+        self.regs.clear_flags(Flag::N as u8 | Flag::H as u8 | Flag::C as u8);
+        return_val
     }
 
     #[inline]
