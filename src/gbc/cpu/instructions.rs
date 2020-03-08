@@ -26,6 +26,9 @@ impl CPU {
         macro_rules! read_ind { ($addr:expr) => {
             { let addr: u16 = $addr; self.read_byte(mmu, addr) }
         }}
+        macro_rules! write_ind { ($addr:expr, $value:expr) => {
+            { let addr: u16 = $addr; let value = $value; self.write_byte(mmu, addr, value); }
+        }}
 
         // ALU Macros
         macro_rules! a_op { ($op:tt, $operand:expr) => {
@@ -39,26 +42,8 @@ impl CPU {
         }}
         
         // ALU Operation Macros
-        macro_rules! INC { ($reg:ident) => { {
-            let result = self.regs.$reg.wrapping_add(1);
-        
-            self.regs.change_flag(result & 0xFF == 0, Flag::Z);
-            self.regs.clear_flag(Flag::N);
-            self.regs.change_flag(((self.regs.$reg ^ 1 ^ result as u8) & 0x10) != 0, Flag::H);
-
-            self.regs.$reg = result;
-        } }}
-        macro_rules! DEC { ($reg:ident) => { {
-            let result = self.regs.$reg.wrapping_sub(1);
-        
-            self.regs.change_flag(result & 0xFF == 0, Flag::Z);
-            self.regs.set_flag(Flag::N);
-            self.regs.change_flag(self.regs.$reg & 0x0F < 1, Flag::H);
-
-            self.regs.$reg = result;
-        } }}
         macro_rules! INC_DEC16 { ($high:ident, $low:ident, $op: ident) => {
-            { let value = get_reg16!($high, $low).$op(1); set_reg16!($high, $low, value); }
+            set_reg16!($high, $low, get_reg16!($high, $low).$op(1))
         }}
 
         // Jump Macros
@@ -270,24 +255,24 @@ impl CPU {
             0xBD => self.CP(self.regs.L),
             0xBE => self.CP(self.read_byte(mmu, get_reg16!(H, L))),
             0xFE => { let operand = self.read_next_byte(mmu); self.CP(operand); },
-            // INC A, n
-            0x3C => INC!(A),
-            0x04 => INC!(B),
-            0x0C => INC!(C),
-            0x14 => INC!(D),
-            0x1C => INC!(E),
-            0x24 => INC!(H),
-            0x2C => INC!(L),
-            0x34 => INC_DEC16!(H, L, wrapping_add),
-            // DEC A, n
-            0x3D => DEC!(A),
-            0x05 => DEC!(B),
-            0x0D => DEC!(C),
-            0x15 => DEC!(D),
-            0x1D => DEC!(E),
-            0x25 => DEC!(H),
-            0x2D => DEC!(L),
-            0x35 => INC_DEC16!(H, L, wrapping_sub),
+            // INC n
+            0x3C => self.regs.A = self.INC(self.regs.A),
+            0x04 => self.regs.B = self.INC(self.regs.B),
+            0x0C => self.regs.C = self.INC(self.regs.C),
+            0x14 => self.regs.D = self.INC(self.regs.D),
+            0x1C => self.regs.E = self.INC(self.regs.E),
+            0x24 => self.regs.H = self.INC(self.regs.H),
+            0x2C => self.regs.L = self.INC(self.regs.L),
+            0x34 => write_ind!(get_reg16!(H, L), self.INC(read_ind!(get_reg16!(H, L)))),
+            // DEC n
+            0x3D => self.regs.A = self.DEC(self.regs.A),
+            0x05 => self.regs.B = self.DEC(self.regs.B),
+            0x0D => self.regs.C = self.DEC(self.regs.C),
+            0x15 => self.regs.D = self.DEC(self.regs.D),
+            0x1D => self.regs.E = self.DEC(self.regs.E),
+            0x25 => self.regs.H = self.DEC(self.regs.H),
+            0x2D => self.regs.L = self.DEC(self.regs.L),
+            0x35 => write_ind!(get_reg16!(H, L), self.DEC(read_ind!(get_reg16!(H, L)))),
 
             // 16 Bit ALU
             // ADD HL, n
@@ -766,6 +751,28 @@ impl CPU {
     }
 
     #[inline]
+    fn INC(&mut self, operand: u8) -> u8{
+        let result = operand.wrapping_add(1);
+    
+        self.regs.change_flag(result & 0xFF == 0, Flag::Z);
+        self.regs.clear_flag(Flag::N);
+        self.regs.change_flag(((operand ^ 1 ^ result as u8) & 0x10) != 0, Flag::H);
+
+        result
+    }
+
+    #[inline]
+    fn DEC(&mut self, operand: u8) -> u8 {
+        let result = operand.wrapping_sub(1);
+    
+        self.regs.change_flag(result & 0xFF == 0, Flag::Z);
+        self.regs.set_flag(Flag::N);
+        self.regs.change_flag(operand & 0x0F < 1, Flag::H);
+
+        result
+    }
+
+    #[inline]
     fn ADD16(&mut self, operand: u16) {
         let HL = get_reg16!(self.regs, H, L);
         let result: u32 = (HL as u32).wrapping_add(operand as u32);
@@ -832,6 +839,7 @@ impl CPU {
 
         self.regs.change_flag(return_val == 0, Flag::Z);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8 | Flag::C as u8);
+
         return_val
     }
 
@@ -842,6 +850,7 @@ impl CPU {
 
         self.regs.change_flag(return_val == 0, Flag::Z);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
+
         return_val
     }
 
@@ -853,6 +862,7 @@ impl CPU {
         
         self.regs.change_flag(return_val == 0, Flag::Z);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
+
         return_val
     }
 
@@ -863,6 +873,7 @@ impl CPU {
 
         self.regs.change_flag(return_val == 0, Flag::Z);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
+
         return_val
     }
 
@@ -874,6 +885,7 @@ impl CPU {
         
         self.regs.change_flag(return_val == 0, Flag::Z);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
+
         return_val
     }
 
@@ -884,6 +896,7 @@ impl CPU {
 
         self.regs.change_flag(return_val == 0, Flag::Z);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
+
         return_val
     }
 
@@ -894,6 +907,7 @@ impl CPU {
 
         self.regs.change_flag(return_val == 0, Flag::Z);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
+
         return_val
     }
 
@@ -904,6 +918,7 @@ impl CPU {
 
         self.regs.change_flag(return_val == 0, Flag::Z);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
+
         return_val
     }
 
