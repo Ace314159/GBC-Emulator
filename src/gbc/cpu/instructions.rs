@@ -47,15 +47,19 @@ impl CPU {
         }}
 
         // Jump Macros
-        macro_rules! conditional { ($flag:ident, $pass:expr, $fail:expr) => {
-            if self.regs.get_flag(Flag::$flag) { self.regs.PC = $pass } else { self.regs.PC = $fail }
+        macro_rules! conditional { ($flag:ident, $pass:block, $fail:expr) => {
+            if self.regs.get_flag(Flag::$flag) { self.regs.PC = $pass; } else { $fail; }
         }}
-        macro_rules! n_conditional { ($flag:ident, $pass:expr, $fail:expr) => {
-            if !self.regs.get_flag(Flag::$flag) { self.regs.PC = $pass } else { self.regs.PC = $fail }
+        macro_rules! n_conditional { ($flag:ident, $pass:block, $fail:expr) => {
+            if !self.regs.get_flag(Flag::$flag) { self.regs.PC = $pass; } else { $fail; }
         }}
-
+        
+        if self.regs.PC == 0x68 {
+            self.regs.PC = 0x100;
+        }
+        
         let opcode = self.read_next_byte(mmu);
-
+        
         match opcode {
             // 8 Bit Loads
             // LD nn,n
@@ -300,10 +304,10 @@ impl CPU {
             0x3F => self.CCF(),
             0x37 => self.SCF(),
             0x00 => {}, // NOP
-            0x76 => { println!("HALT"); }, // HALT
-            0x10 => { println!("STOP"); }, // STOP
-            0xF3 => { println!("DI"); }, // DI
-            0xFB => { println!("EI"); }, // EI
+            0x76 => println!("HALT Called!"), // HALT
+            0x10 => println!("STOP Called"), // STOP
+            0xF3 => self.IME = false, // DI
+            0xFB => self.IME = true, // EI
             
             // Rotates
             0x07 => { self.regs.A = self.RLC(self.regs.A); self.regs.clear_flag(Flag::Z); },
@@ -312,24 +316,29 @@ impl CPU {
             0x1F => { self.regs.A = self.RR(self.regs.A); self.regs.clear_flag(Flag::Z); },
             
             // Jumps
-            0xC3 => self.regs.PC = self.read_next_word(mmu),
-            0xC2 => n_conditional!(Z, self.read_next_word(mmu), self.regs.PC.wrapping_add(2)),
-            0xCA => conditional!(Z, self.read_next_word(mmu), self.regs.PC.wrapping_add(2)),
-            0xD2 => n_conditional!(C, self.read_next_word(mmu), self.regs.PC.wrapping_add(2)),
-            0xDA => conditional!(C, self.read_next_word(mmu), self.regs.PC.wrapping_add(2)),
+            // JP nn
+            0xC3 => { self.regs.PC = self.read_next_word(mmu); self.extra_cycle(); },
+            //JP cc, nn
+            0xC2 => n_conditional!(Z, { let a = self.read_next_word(mmu); self.extra_cycle(); a}, self.read_next_word(mmu)),
+            0xCA => conditional!(Z, { let a = self.read_next_word(mmu); self.extra_cycle(); a}, self.read_next_word(mmu)),
+            0xD2 => n_conditional!(C, { let a = self.read_next_word(mmu); self.extra_cycle(); a}, self.read_next_word(mmu)),
+            0xDA => conditional!(C, { let a = self.read_next_word(mmu); self.extra_cycle(); a}, self.read_next_word(mmu)),
+            // JP (HL)
             0xE9 => self.regs.PC = get_reg16!(H, L),
-            0x18 => self.regs.PC = self.relative(mmu),
-            0x20 => n_conditional!(Z, self.relative(mmu), self.regs.PC.wrapping_add(1)),
-            0x28 => conditional!(Z, self.relative(mmu), self.regs.PC.wrapping_add(1)),
-            0x30 => n_conditional!(C, self.relative(mmu), self.regs.PC.wrapping_add(1)),
-            0x38 => conditional!(C, self.relative(mmu), self.regs.PC.wrapping_add(1)),
+            // JR n
+            0x18 => { self.regs.PC = self.relative(mmu); self.extra_cycle(); },
+            // JR cc, n
+            0x20 => n_conditional!(Z, { let a = self.relative(mmu); self.extra_cycle(); a }, self.read_next_byte(mmu)),
+            0x28 => conditional!(Z, { let a = self.relative(mmu); self.extra_cycle(); a }, self.read_next_byte(mmu)),
+            0x30 => n_conditional!(C, { let a = self.relative(mmu); self.extra_cycle(); a }, self.read_next_byte(mmu)),
+            0x38 => conditional!(C, { let a = self.relative(mmu); self.extra_cycle(); a }, self.read_next_byte(mmu)),
 
             // Calls
             0xCD => self.regs.PC = self.CALL(mmu),
-            0xC4 => n_conditional!(Z, self.CALL(mmu), self.regs.PC.wrapping_add(2)),
-            0xCC => conditional!(Z, self.CALL(mmu), self.regs.PC.wrapping_add(2)),
-            0xD4 => n_conditional!(C, self.CALL(mmu), self.regs.PC.wrapping_add(2)),
-            0xDC => conditional!(C, self.CALL(mmu), self.regs.PC.wrapping_add(2)),
+            0xC4 => n_conditional!(Z, { self.CALL(mmu) }, self.read_next_word(mmu)),
+            0xCC => conditional!(Z, { self.CALL(mmu) }, self.read_next_word(mmu)),
+            0xD4 => n_conditional!(C, { self.CALL(mmu) }, self.read_next_word(mmu)),
+            0xDC => conditional!(C, { self.CALL(mmu) }, self.read_next_word(mmu)),
 
             // Restarts
             0xC7 => self.RST(mmu, 0x00),
@@ -343,10 +352,10 @@ impl CPU {
             
             // Returns
             0xC9 => self.regs.PC = self.RET(mmu),
-            0xC0 => n_conditional!(Z, self.RET(mmu), self.regs.PC),
-            0xC8 => conditional!(Z, self.RET(mmu), self.regs.PC),
-            0xD0 => n_conditional!(C, self.RET(mmu), self.regs.PC),
-            0xD8 => conditional!(C, self.RET(mmu), self.regs.PC),
+            0xC0 => { self.extra_cycle(); n_conditional!(Z, { self.RET(mmu) }, self.regs.PC); },
+            0xC8 => { self.extra_cycle(); conditional!(Z, { self.RET(mmu) }, self.regs.PC); },
+            0xD0 => { self.extra_cycle(); n_conditional!(C, { self.RET(mmu) }, self.regs.PC); },
+            0xD8 => { self.extra_cycle(); conditional!(C, { self.RET(mmu) }, self.regs.PC); },
             0xD9 => { self.regs.PC = self.RET(mmu); /* TODO: Enable Interrupts */ },
 
             _ => panic!("Unoffical Opcode {:X}", opcode),
@@ -640,6 +649,10 @@ impl CPU {
 
     // Util
     // Memory
+    fn extra_cycle(&self) {
+        // 1 Machine Cycle
+    }
+
     fn read_byte(&self, mmu: &MMU, addr: u16) -> u8 {
         // 1 Machine Cycle
         return mmu.read(addr);
@@ -949,17 +962,21 @@ impl CPU {
     #[inline]
     fn CALL(&mut self, mmu: &mut MMU) -> u16 {
         self.stack_push16(mmu, self.regs.PC.wrapping_add(2));
+        self.extra_cycle();
         self.read_next_word(mmu)
     }
 
     #[inline]
     fn RST(&mut self, mmu: &mut MMU, addr: u16) {
+        self.extra_cycle();
         self.stack_push16(mmu, self.regs.PC);
         self.regs.PC = addr;
     }
 
     #[inline]
     fn RET(&mut self, mmu: &mut MMU) -> u16 {
-        self.stack_pop16(mmu)
+        let addr = self.stack_pop16(mmu);
+        self.extra_cycle();
+        addr
     }
 }

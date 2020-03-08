@@ -8,12 +8,14 @@ use registers::Flag;
 
 pub struct CPU {
     regs: Registers,
+    IME: bool,
 }
 
 impl CPU {
     pub fn new() -> Self {
         CPU {
             regs: Registers::new(),
+            IME: false,
         }
     }
 
