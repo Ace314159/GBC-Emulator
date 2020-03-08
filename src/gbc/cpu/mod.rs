@@ -17,7 +17,13 @@ impl CPU {
         }
     }
 
-    pub fn emulate_instr(&mut self, mem: &mut MMU) {
-        self.exec(mem);
+    pub fn emulate_instr(&mut self, mmu: &mut MMU) {
+        self.exec(mmu);
+    }
+
+    pub fn emulate_boot_rom(&mut self, mmu: &mut MMU) {
+        while self.regs.PC < 0x100 {
+            self.exec(mmu);
+        }
     }
 }

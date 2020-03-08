@@ -26,4 +26,8 @@ impl MemoryBankController for None {
             panic!("External RAM not supported!");
         }
     }
+
+    fn get_boot_rom_ptr(&mut self) -> *mut [u8; 0x100] {
+        self.rom[..0x100].as_mut_ptr() as *mut [u8; 0x100]
+    }
 }

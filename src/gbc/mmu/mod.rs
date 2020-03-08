@@ -32,4 +32,13 @@ impl MMU {
             self.ram[0xFF02 - 0x8000] &= !0x80;
         }
     }
+
+    pub fn swap_boot_rom(&mut self, boot_rom: &mut Vec<u8>) {
+        let boot_rom_len = boot_rom.len();
+        assert_eq!(boot_rom_len, 0x100);
+        unsafe {
+            let x = boot_rom[..boot_rom_len].as_mut_ptr() as *mut [u8; 0x100];
+            std::ptr::swap(x, self.mbc.get_boot_rom_ptr());
+        }
+    }
 }

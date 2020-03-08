@@ -45,4 +45,8 @@ impl MemoryBankController for MBC1 {
         }
         assert_eq!(self.is_rom_banking, true); // TODO: Add support for RAM Banking
     }
+
+    fn get_boot_rom_ptr(&mut self) -> *mut [u8; 0x100] {
+        self.rom[..0x100].as_mut_ptr() as *mut [u8; 0x100]
+    }
 }

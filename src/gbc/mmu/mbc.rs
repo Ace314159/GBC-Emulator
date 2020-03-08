@@ -4,6 +4,7 @@ mod mbc1;
 pub trait MemoryBankController {
     fn read(&self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, value: u8);
+    fn get_boot_rom_ptr(&mut self) -> *mut [u8; 0x100];
 }
 
 pub fn get_mbc(cartridge_type: u8, rom: Vec<u8>) -> Box<dyn MemoryBankController> {
