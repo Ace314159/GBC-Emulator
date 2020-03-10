@@ -13,7 +13,7 @@ impl MBC1 {
     pub fn new(rom: Vec<u8>) -> Self {
         MBC1 {
             rom,
-            rom_bank: 0,
+            rom_bank: 1,
             ram_bank: 0,
             ram_enable: false,
             is_rom_banking: true,
