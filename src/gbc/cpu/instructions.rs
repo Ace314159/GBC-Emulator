@@ -5,7 +5,16 @@ use super::Flag;
 
 
 impl CPU {
-    pub fn exec(&mut self, mmu: &mut MMU) {
+    pub fn emulate_instr(&mut self, mmu: &mut MMU) {
+        if self.regs.PC == 0x68 {
+            self.regs.PC = 0x100;
+        }
+
+        let opcode = self.read_next_byte(mmu);
+        self.decode_exec(mmu, opcode);
+    }
+
+    pub fn decode_exec(&mut self, mmu: &mut MMU, opcode: u8) {
         // Register Macros
         macro_rules! get_reg16 { ($high:ident, $low:ident) => { 
             (self.regs.$high as u16) << 8 | (self.regs.$low as u16)
@@ -53,13 +62,8 @@ impl CPU {
         macro_rules! n_conditional { ($flag:ident, $pass:block, $fail:expr) => {
             if !self.regs.get_flag(Flag::$flag) { self.regs.PC = $pass; } else { $fail; }
         }}
-        
-        if self.regs.PC == 0x68 {
-            self.regs.PC = 0x100;
-        }
-        
-        let opcode = self.read_next_byte(mmu);
-        
+
+
         match opcode {
             // 8 Bit Loads
             // LD nn,n
@@ -304,10 +308,10 @@ impl CPU {
             0x3F => self.CCF(),
             0x37 => self.SCF(),
             0x00 => {}, // NOP
-            0x76 => println!("HALT Called!"), // HALT
-            0x10 => println!("STOP Called"), // STOP
+            0x76 => self.HALT(mmu),
+            0x10 => { /*println!("STOP Called")*/ }, // STOP
             0xF3 => self.IME = false, // DI
-            0xFB => self.IME = true, // EI
+            0xFB => { self.IME = true; self.emulate_instr(mmu); /* Interrupt not handled until next instruction */ }, // EI
             
             // Rotates
             0x07 => { self.regs.A = self.RLC(self.regs.A); self.regs.clear_flag(Flag::Z); },
@@ -356,7 +360,7 @@ impl CPU {
             0xC8 => { self.extra_cycle(); conditional!(Z, { self.RET(mmu) }, self.regs.PC); },
             0xD0 => { self.extra_cycle(); n_conditional!(C, { self.RET(mmu) }, self.regs.PC); },
             0xD8 => { self.extra_cycle(); conditional!(C, { self.RET(mmu) }, self.regs.PC); },
-            0xD9 => { self.regs.PC = self.RET(mmu); /* TODO: Enable Interrupts */ },
+            0xD9 => { self.regs.PC = self.RET(mmu); self.IME = true; },
 
             _ => panic!("Unoffical Opcode {:X}", opcode),
         };
@@ -705,6 +709,16 @@ impl CPU {
         return self.stack_pop8(mmu) as u16 | (self.stack_pop8(mmu) as u16) << 8;
     }
 
+    // Interrupts
+    pub fn handle_interrupt(&mut self, mmu: &mut MMU, vector: u16) {
+        // ISR - Interrupt Service Routine
+        self.extra_cycle();
+        self.extra_cycle();
+        self.stack_push16(mmu, self.regs.PC);
+        self.extra_cycle();
+        self.regs.PC = vector;
+    }
+
     // Operations
     #[inline]
     fn ADD(&mut self, operand: u8) {
@@ -844,6 +858,21 @@ impl CPU {
     fn SCF(&mut self) {
         self.regs.set_flag(Flag::C);
         self.regs.clear_flags(Flag::N as u8 | Flag::H as u8);
+    }
+
+    #[inline]
+    fn HALT(&mut self, mmu: &mut MMU) {
+        if self.IME {
+            self.is_halted = true;
+        } else {
+            if mmu.read(CPU::IE_ADDR) & mmu.read(CPU::IF_ADDR) & 0x1F == 0 {
+                self.is_halted = true;
+            } else {
+                // HALT bug where PC is not incremented when fetching opcode
+                let opcode = self.read_byte(mmu, self.regs.PC);
+                self.decode_exec(mmu, opcode);
+            }
+        }
     }
 
     #[inline]

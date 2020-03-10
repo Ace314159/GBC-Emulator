@@ -17,7 +17,7 @@ impl MemoryBankController for None {
         if addr < 0x8000 {
             self.rom[addr as usize]
         } else {
-            0 // TODO: Add External RAM Support
+            0xFF // TODO: Add External RAM Support
         }
     }
     
