@@ -30,7 +30,7 @@ impl CPU {
     }
 
     const IF_ADDR: u16 = 0xFF0F;
-    const IE_ADDR: u16 = 0xFFEF;
+    const IE_ADDR: u16 = 0xFFFF;
     const NUM_INTERRUPTS: usize = 5;
     const INTERRUPT_VECTORS: [u16; CPU::NUM_INTERRUPTS] = [0x0040, 0x0048, 0x0050, 0x0058, 0x0060];
 
