@@ -37,13 +37,15 @@ impl CPU {
     fn handle_interrupts(&mut self, mmu: &mut MMU) {
         if !self.is_halted && !self.IME { return }
 
-
-        let interrupts = mmu.read(CPU::IF_ADDR) & mmu.read(CPU::IE_ADDR);
+        let IF = mmu.read(CPU::IF_ADDR);
+        let interrupts = IF & mmu.read(CPU::IE_ADDR);
 
         for i in 0..5 {
-            if interrupts & (1 << i) != 0 {
+            let mask = 1u8 << i;
+            if interrupts & mask != 0 {
                 let vector = if self.IME { CPU::INTERRUPT_VECTORS[i] } else { self.regs.PC };
                 self.handle_interrupt(mmu, vector);
+                mmu.write(CPU::IF_ADDR, IF & !mask);
             }
         }
     }
