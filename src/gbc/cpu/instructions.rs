@@ -169,7 +169,7 @@ impl CPU {
 
             // Stack
             0x08 => mem_reg16!(self.read_next_word(io), sp),
-            0xF8 => { set_reg16!(h, l, self.add_sp(io)); self.extra_cycle(io); },
+            0xF8 => { set_reg16!(h, l, self.add_sp(io)); self.internal_cycle(io); },
             0xF9 => self.regs.sp = get_reg16!(h, l),
             // POP nn
             0xC1 => set_reg16!(b, c, self.stack_pop16(io)),
@@ -291,14 +291,14 @@ impl CPU {
             // ADD SP, n
             0xE8 => self.regs.sp = self.add_sp(io),
             // INC nn
-            0x03 => { INC_DEC16!(b, c, wrapping_add); self.extra_cycle(io); },
-            0x13 => { INC_DEC16!(d, e, wrapping_add); self.extra_cycle(io); },
-            0x23 => { INC_DEC16!(h, l, wrapping_add); self.extra_cycle(io); },
+            0x03 => { INC_DEC16!(b, c, wrapping_add); self.internal_cycle(io); },
+            0x13 => { INC_DEC16!(d, e, wrapping_add); self.internal_cycle(io); },
+            0x23 => { INC_DEC16!(h, l, wrapping_add); self.internal_cycle(io); },
             0x33 => self.regs.sp = self.regs.sp.wrapping_add(1),
             // DEC nn
-            0x0B => { INC_DEC16!(b, c, wrapping_sub); self.extra_cycle(io); },
-            0x1B => { INC_DEC16!(d, e, wrapping_sub); self.extra_cycle(io); },
-            0x2B => { INC_DEC16!(h, l, wrapping_sub); self.extra_cycle(io); },
+            0x0B => { INC_DEC16!(b, c, wrapping_sub); self.internal_cycle(io); },
+            0x1B => { INC_DEC16!(d, e, wrapping_sub); self.internal_cycle(io); },
+            0x2B => { INC_DEC16!(h, l, wrapping_sub); self.internal_cycle(io); },
             0x3B => self.regs.sp = self.regs.sp.wrapping_sub(1),
 
             // Misc
@@ -321,21 +321,21 @@ impl CPU {
             
             // Jumps
             // JP nn
-            0xC3 => { self.regs.pc = self.read_next_word(io); self.extra_cycle(io); },
+            0xC3 => { self.regs.pc = self.read_next_word(io); self.internal_cycle(io); },
             //JP cc, nn
-            0xC2 => n_conditional!(Z, { let a = self.read_next_word(io); self.extra_cycle(io); a}, self.read_next_word(io)),
-            0xCA => conditional!(Z, { let a = self.read_next_word(io); self.extra_cycle(io); a}, self.read_next_word(io)),
-            0xD2 => n_conditional!(C, { let a = self.read_next_word(io); self.extra_cycle(io); a}, self.read_next_word(io)),
-            0xDA => conditional!(C, { let a = self.read_next_word(io); self.extra_cycle(io); a}, self.read_next_word(io)),
+            0xC2 => n_conditional!(Z, { let a = self.read_next_word(io); self.internal_cycle(io); a}, self.read_next_word(io)),
+            0xCA => conditional!(Z, { let a = self.read_next_word(io); self.internal_cycle(io); a}, self.read_next_word(io)),
+            0xD2 => n_conditional!(C, { let a = self.read_next_word(io); self.internal_cycle(io); a}, self.read_next_word(io)),
+            0xDA => conditional!(C, { let a = self.read_next_word(io); self.internal_cycle(io); a}, self.read_next_word(io)),
             // JP (HL)
             0xE9 => self.regs.pc = get_reg16!(h, l),
             // JR n
-            0x18 => { self.regs.pc = self.relative(io); self.extra_cycle(io); },
+            0x18 => { self.regs.pc = self.relative(io); self.internal_cycle(io); },
             // JR cc, n
-            0x20 => n_conditional!(Z, { let a = self.relative(io); self.extra_cycle(io); a }, self.read_next_byte(io)),
-            0x28 => conditional!(Z, { let a = self.relative(io); self.extra_cycle(io); a }, self.read_next_byte(io)),
-            0x30 => n_conditional!(C, { let a = self.relative(io); self.extra_cycle(io); a }, self.read_next_byte(io)),
-            0x38 => conditional!(C, { let a = self.relative(io); self.extra_cycle(io); a }, self.read_next_byte(io)),
+            0x20 => n_conditional!(Z, { let a = self.relative(io); self.internal_cycle(io); a }, self.read_next_byte(io)),
+            0x28 => conditional!(Z, { let a = self.relative(io); self.internal_cycle(io); a }, self.read_next_byte(io)),
+            0x30 => n_conditional!(C, { let a = self.relative(io); self.internal_cycle(io); a }, self.read_next_byte(io)),
+            0x38 => conditional!(C, { let a = self.relative(io); self.internal_cycle(io); a }, self.read_next_byte(io)),
 
             // Calls
             0xCD => self.regs.pc = self.call(io),
@@ -356,10 +356,10 @@ impl CPU {
             
             // Returns
             0xC9 => self.regs.pc = self.ret(io),
-            0xC0 => { self.extra_cycle(io); n_conditional!(Z, { self.ret(io) }, self.regs.pc); },
-            0xC8 => { self.extra_cycle(io); conditional!(Z, { self.ret(io) }, self.regs.pc); },
-            0xD0 => { self.extra_cycle(io); n_conditional!(C, { self.ret(io) }, self.regs.pc); },
-            0xD8 => { self.extra_cycle(io); conditional!(C, { self.ret(io) }, self.regs.pc); },
+            0xC0 => { self.internal_cycle(io); n_conditional!(Z, { self.ret(io) }, self.regs.pc); },
+            0xC8 => { self.internal_cycle(io); conditional!(Z, { self.ret(io) }, self.regs.pc); },
+            0xD0 => { self.internal_cycle(io); n_conditional!(C, { self.ret(io) }, self.regs.pc); },
+            0xD8 => { self.internal_cycle(io); conditional!(C, { self.ret(io) }, self.regs.pc); },
             0xD9 => { self.regs.pc = self.ret(io); self.ime = true; },
 
             _ => panic!("Unoffical Opcode {:X}", opcode),
@@ -650,7 +650,7 @@ impl CPU {
 
     // Util
     // Memory
-    fn extra_cycle(&self, io: &mut IO) {
+    fn internal_cycle(&self, io: &mut IO) {
         io.emulate_machine_cycle();
     }
 
@@ -688,7 +688,7 @@ impl CPU {
 
     fn stack_push16(&mut self, io: &mut IO, value: u16) {
         let bytes= value.to_be_bytes();
-        self.extra_cycle(io);
+        self.internal_cycle(io);
         self.stack_push8(io, bytes[0]);
         self.stack_push8(io, bytes[1]);
     }
@@ -706,10 +706,10 @@ impl CPU {
     // Interrupts
     pub fn handle_interrupt(&mut self, io: &mut IO, vector: u16) {
         // ISR - Interrupt Service Routine
-        self.extra_cycle(io);
-        self.extra_cycle(io);
+        self.internal_cycle(io);
+        self.internal_cycle(io);
         self.stack_push16(io, self.regs.pc);
-        self.extra_cycle(io);
+        self.internal_cycle(io);
         self.regs.pc = vector;
     }
 
@@ -984,14 +984,14 @@ impl CPU {
 
     #[inline]
     fn call(&mut self, io: &mut IO) -> u16 {
-        self.extra_cycle(io);
+        self.internal_cycle(io);
         self.stack_push16(io, self.regs.pc.wrapping_add(2));
         self.read_next_word(io)
     }
 
     #[inline]
     fn rst(&mut self, io: &mut IO, addr: u16) {
-        self.extra_cycle(io);
+        self.internal_cycle(io);
         self.stack_push16(io, self.regs.pc);
         self.regs.pc = addr;
     }
@@ -999,7 +999,7 @@ impl CPU {
     #[inline]
     fn ret(&mut self, io: &mut IO) -> u16 {
         let addr = self.stack_pop16(io);
-        self.extra_cycle(io);
+        self.internal_cycle(io);
         addr
     }
 }
