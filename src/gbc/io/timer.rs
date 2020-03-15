@@ -28,17 +28,15 @@ impl Timer {
         let mut interrupt_called = false;
         self.divider_counter = self.divider_counter.wrapping_add(4);
 
-        if self.enabled {
-            let bit = Timer::CLOCK_SELECT[self.clock_select as usize];
-            let counter_bit = self.divider_counter & (1 << bit) != 0;
-            if self.prev_counter_bit && !counter_bit {
-                self.counter = if self.counter == 0xFF {
-                    interrupt_called = true;
-                    self.modulo
-                } else { self.counter + 1 };
-            }
-            self.prev_counter_bit = counter_bit;
+        let bit = Timer::CLOCK_SELECT[self.clock_select as usize];
+        let counter_bit = self.enabled && self.divider_counter & (1 << bit) != 0;
+        if self.prev_counter_bit && !counter_bit {
+            self.counter = if self.counter == 0xFF {
+                interrupt_called = true;
+                self.modulo
+            } else { self.counter + 1 };
         }
+        self.prev_counter_bit = counter_bit;
 
         interrupt_called
     }
