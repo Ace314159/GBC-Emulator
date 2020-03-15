@@ -1,20 +1,20 @@
-use super::super::MMU;
+use super::IO;
 use super::CPU;
 
 use super::Flag;
 
 
 impl CPU {
-    pub fn emulate_instr(&mut self, mmu: &mut MMU) {
+    pub fn emulate_instr(&mut self, io: &mut IO) {
         if self.regs.PC == 0x68 {
             self.regs.PC = 0x100;
         }
 
-        let opcode = self.read_next_byte(mmu);
-        self.decode_exec(mmu, opcode);
+        let opcode = self.read_next_byte(io);
+        self.decode_exec(io, opcode);
     }
 
-    pub fn decode_exec(&mut self, mmu: &mut MMU, opcode: u8) {
+    pub fn decode_exec(&mut self, io: &mut IO, opcode: u8) {
         // Register Macros
         macro_rules! get_reg16 { ($high:ident, $low:ident) => { 
             (self.regs.$high as u16) << 8 | (self.regs.$low as u16)
@@ -25,18 +25,18 @@ impl CPU {
 
         // Memory Macros
         macro_rules! mem_reg8 { ($addr:expr, $reg:ident) => {
-            { let addr: u16 = $addr; self.write_byte(mmu, addr, self.regs.$reg); }
+            { let addr: u16 = $addr; self.write_byte(io, addr, self.regs.$reg); }
         }}
         macro_rules! mem_reg16 { ($addr:expr, $reg:ident) => {
-            { let addr: u16 = $addr; self.write_word(mmu, addr, self.regs.$reg); }
+            { let addr: u16 = $addr; self.write_word(io, addr, self.regs.$reg); }
         }}
 
         // Addressing Mode Macros
         macro_rules! read_ind { ($addr:expr) => {
-            { let addr: u16 = $addr; self.read_byte(mmu, addr) }
+            { let addr: u16 = $addr; self.read_byte(io, addr) }
         }}
         macro_rules! write_ind { ($addr:expr, $value:expr) => {
-            { let addr: u16 = $addr; let value = $value; self.write_byte(mmu, addr, value); }
+            { let addr: u16 = $addr; let value = $value; self.write_byte(io, addr, value); }
         }}
 
         // ALU Macros
@@ -67,12 +67,12 @@ impl CPU {
         match opcode {
             // 8 Bit Loads
             // LD nn,n
-            0x06 => self.regs.B = self.read_next_byte(mmu),
-            0x0E => self.regs.C = self.read_next_byte(mmu),
-            0x16 => self.regs.D = self.read_next_byte(mmu),
-            0x1E => self.regs.E = self.read_next_byte(mmu),
-            0x26 => self.regs.H = self.read_next_byte(mmu),
-            0x2E => self.regs.L = self.read_next_byte(mmu),
+            0x06 => self.regs.B = self.read_next_byte(io),
+            0x0E => self.regs.C = self.read_next_byte(io),
+            0x16 => self.regs.D = self.read_next_byte(io),
+            0x1E => self.regs.E = self.read_next_byte(io),
+            0x26 => self.regs.H = self.read_next_byte(io),
+            0x2E => self.regs.L = self.read_next_byte(io),
 
             // LD r1, r2
             // LD A, n
@@ -88,8 +88,8 @@ impl CPU {
             0x2A => {self.regs.A = read_ind!(get_reg16!(H, L)); INC_DEC16!(H, L, wrapping_add)},
             0x3A => {self.regs.A = read_ind!(get_reg16!(H, L)); INC_DEC16!(H, L, wrapping_sub)},
             0x7E => self.regs.A = read_ind!(get_reg16!(H, L)),
-            0xFA => self.regs.A = read_ind!(self.read_next_word(mmu)),
-            0x3E => self.regs.A = self.read_next_byte(mmu),
+            0xFA => self.regs.A = read_ind!(self.read_next_word(io)),
+            0x3E => self.regs.A = self.read_next_byte(io),
             
             0x40 => self.regs.B = self.regs.B,
             0x41 => self.regs.B = self.regs.C,
@@ -133,13 +133,13 @@ impl CPU {
             0x6C => self.regs.L = self.regs.H,
             0x6D => self.regs.L = self.regs.L,
             0x6E => self.regs.L = read_ind!(get_reg16!(H, L)),
-            0x70 => self.write_byte(mmu, get_reg16!(H, L), self.regs.B),
-            0x71 => self.write_byte(mmu, get_reg16!(H, L), self.regs.C),
-            0x72 => self.write_byte(mmu, get_reg16!(H, L), self.regs.D),
-            0x73 => self.write_byte(mmu, get_reg16!(H, L), self.regs.E),
-            0x74 => self.write_byte(mmu, get_reg16!(H, L), self.regs.H),
-            0x75 => self.write_byte(mmu, get_reg16!(H, L), self.regs.L),
-            0x36 => { let value = self.read_next_byte(mmu); self.write_byte(mmu, get_reg16!(H, L), value); },
+            0x70 => self.write_byte(io, get_reg16!(H, L), self.regs.B),
+            0x71 => self.write_byte(io, get_reg16!(H, L), self.regs.C),
+            0x72 => self.write_byte(io, get_reg16!(H, L), self.regs.D),
+            0x73 => self.write_byte(io, get_reg16!(H, L), self.regs.E),
+            0x74 => self.write_byte(io, get_reg16!(H, L), self.regs.H),
+            0x75 => self.write_byte(io, get_reg16!(H, L), self.regs.L),
+            0x36 => { let value = self.read_next_byte(io); self.write_byte(io, get_reg16!(H, L), value); },
             // LD n, A
             0x47 => self.regs.B = self.regs.A,
             0x4F => self.regs.C = self.regs.A,
@@ -147,40 +147,40 @@ impl CPU {
             0x5F => self.regs.E = self.regs.A,
             0x67 => self.regs.H = self.regs.A,
             0x6F => self.regs.L = self.regs.A,
-            0x02 => self.write_byte(mmu, get_reg16!(B, C), self.regs.A),
-            0x12 => self.write_byte(mmu, get_reg16!(D, E), self.regs.A),
-            0x22 => {self.write_byte(mmu, get_reg16!(H, L), self.regs.A); INC_DEC16!(H, L, wrapping_add);},
-            0x32 => {self.write_byte(mmu, get_reg16!(H, L), self.regs.A); INC_DEC16!(H, L, wrapping_sub);},
-            0x77 => self.write_byte(mmu, get_reg16!(H, L), self.regs.A),
-            0xEA => mem_reg8!(self.read_next_word(mmu), A),
+            0x02 => self.write_byte(io, get_reg16!(B, C), self.regs.A),
+            0x12 => self.write_byte(io, get_reg16!(D, E), self.regs.A),
+            0x22 => {self.write_byte(io, get_reg16!(H, L), self.regs.A); INC_DEC16!(H, L, wrapping_add);},
+            0x32 => {self.write_byte(io, get_reg16!(H, L), self.regs.A); INC_DEC16!(H, L, wrapping_sub);},
+            0x77 => self.write_byte(io, get_reg16!(H, L), self.regs.A),
+            0xEA => mem_reg8!(self.read_next_word(io), A),
 
             // "Zero" Page at Page 0xFF
-            0xE0 => mem_reg8!(0xFF00 | (self.read_next_byte(mmu) as u16), A),
-            0xE2 => self.write_byte(mmu, 0xFF00 | (self.regs.C as u16), self.regs.A),
-            0xF0 => self.regs.A = read_ind!(0xFF00 | (self.read_next_byte(mmu) as u16)),
+            0xE0 => mem_reg8!(0xFF00 | (self.read_next_byte(io) as u16), A),
+            0xE2 => self.write_byte(io, 0xFF00 | (self.regs.C as u16), self.regs.A),
+            0xF0 => self.regs.A = read_ind!(0xFF00 | (self.read_next_byte(io) as u16)),
             0xF2 => self.regs.A = read_ind!(0xFF00 | (self.regs.C as u16)),
 
             // 16 Bit Loads
             // LD n, nn
-            0x01 => set_reg16!(B, C, self.read_next_word(mmu)),
-            0x11 => set_reg16!(D, E, self.read_next_word(mmu)),
-            0x21 => set_reg16!(H, L, self.read_next_word(mmu)),
-            0x31 => self.regs.SP = self.read_next_word(mmu),
+            0x01 => set_reg16!(B, C, self.read_next_word(io)),
+            0x11 => set_reg16!(D, E, self.read_next_word(io)),
+            0x21 => set_reg16!(H, L, self.read_next_word(io)),
+            0x31 => self.regs.SP = self.read_next_word(io),
 
             // Stack
-            0x08 => mem_reg16!(self.read_next_word(mmu), SP),
-            0xF8 => set_reg16!(H, L, self.ADD_SP(mmu)),
+            0x08 => mem_reg16!(self.read_next_word(io), SP),
+            0xF8 => set_reg16!(H, L, self.ADD_SP(io)),
             0xF9 => self.regs.SP = get_reg16!(H, L),
             // POP nn
-            0xC1 => set_reg16!(B, C, self.stack_pop16(mmu)),
-            0xD1 => set_reg16!(D, E, self.stack_pop16(mmu)),
-            0xE1 => set_reg16!(H, L, self.stack_pop16(mmu)),
-            0xF1 => set_reg16!(A, F, self.stack_pop16(mmu) & 0xFFF0),
+            0xC1 => set_reg16!(B, C, self.stack_pop16(io)),
+            0xD1 => set_reg16!(D, E, self.stack_pop16(io)),
+            0xE1 => set_reg16!(H, L, self.stack_pop16(io)),
+            0xF1 => set_reg16!(A, F, self.stack_pop16(io) & 0xFFF0),
             // PUSH nn
-            0xC5 => self.stack_push16(mmu, get_reg16!(B, C)),
-            0xD5 => self.stack_push16(mmu, get_reg16!(D, E)),
-            0xE5 => self.stack_push16(mmu, get_reg16!(H, L)),
-            0xF5 => self.stack_push16(mmu, get_reg16!(A, F)),
+            0xC5 => self.stack_push16(io, get_reg16!(B, C)),
+            0xD5 => self.stack_push16(io, get_reg16!(D, E)),
+            0xE5 => self.stack_push16(io, get_reg16!(H, L)),
+            0xF5 => self.stack_push16(io, get_reg16!(A, F)),
 
             // 8 Bit ALU
             // ADD A, n
@@ -191,8 +191,8 @@ impl CPU {
             0x83 => self.ADD(self.regs.E),
             0x84 => self.ADD(self.regs.H),
             0x85 => self.ADD(self.regs.L),
-            0x86 => self.ADD(self.read_byte(mmu, get_reg16!(H, L))),
-            0xC6 => { let operand = self.read_next_byte(mmu); self.ADD(operand); },
+            0x86 => self.ADD(self.read_byte(io, get_reg16!(H, L))),
+            0xC6 => { let operand = self.read_next_byte(io); self.ADD(operand); },
             // ADC A, n
             0x8F => self.ADC(self.regs.A),
             0x88 => self.ADC(self.regs.B),
@@ -201,8 +201,8 @@ impl CPU {
             0x8B => self.ADC(self.regs.E),
             0x8C => self.ADC(self.regs.H),
             0x8D => self.ADC(self.regs.L),
-            0x8E => self.ADC(self.read_byte(mmu, get_reg16!(H, L))),
-            0xCE => { let operand = self.read_next_byte(mmu); self.ADC(operand); },
+            0x8E => self.ADC(self.read_byte(io, get_reg16!(H, L))),
+            0xCE => { let operand = self.read_next_byte(io); self.ADC(operand); },
             // SUB A, n
             0x97 => self.SUB(self.regs.A),
             0x90 => self.SUB(self.regs.B),
@@ -211,8 +211,8 @@ impl CPU {
             0x93 => self.SUB(self.regs.E),
             0x94 => self.SUB(self.regs.H),
             0x95 => self.SUB(self.regs.L),
-            0x96 => self.SUB(self.read_byte(mmu, get_reg16!(H, L))),
-            0xD6 => { let operand = self.read_next_byte(mmu); self.SUB(operand); },
+            0x96 => self.SUB(self.read_byte(io, get_reg16!(H, L))),
+            0xD6 => { let operand = self.read_next_byte(io); self.SUB(operand); },
             // SBC A, n
             0x9F => self.SBC(self.regs.A),
             0x98 => self.SBC(self.regs.B),
@@ -221,8 +221,8 @@ impl CPU {
             0x9B => self.SBC(self.regs.E),
             0x9C => self.SBC(self.regs.H),
             0x9D => self.SBC(self.regs.L),
-            0x9E => self.SBC(self.read_byte(mmu, get_reg16!(H, L))),
-            0xDE => { let operand = self.read_next_byte(mmu); self.SBC(operand); },
+            0x9E => self.SBC(self.read_byte(io, get_reg16!(H, L))),
+            0xDE => { let operand = self.read_next_byte(io); self.SBC(operand); },
             // AND A, n
             0xA7 => { a_op!(&, self.regs.A); flags!(self.regs.A == 0, false, true, false); }
             0xA0 => { a_op!(&, self.regs.B); flags!(self.regs.A == 0, false, true, false); }
@@ -232,7 +232,7 @@ impl CPU {
             0xA4 => { a_op!(&, self.regs.H); flags!(self.regs.A == 0, false, true, false); }
             0xA5 => { a_op!(&, self.regs.L); flags!(self.regs.A == 0, false, true, false); }
             0xA6 => { a_op!(&, read_ind!(get_reg16!(H, L))); flags!(self.regs.A == 0, false, true, false); }
-            0xE6 => { a_op!(&, self.read_next_byte(mmu)); flags!(self.regs.A == 0, false, true, false); }
+            0xE6 => { a_op!(&, self.read_next_byte(io)); flags!(self.regs.A == 0, false, true, false); }
             // OR A, n
             0xB7 => { a_op!(|, self.regs.A); flags!(self.regs.A == 0, false, false, false); }
             0xB0 => { a_op!(|, self.regs.B); flags!(self.regs.A == 0, false, false, false); }
@@ -242,7 +242,7 @@ impl CPU {
             0xB4 => { a_op!(|, self.regs.H); flags!(self.regs.A == 0, false, false, false); }
             0xB5 => { a_op!(|, self.regs.L); flags!(self.regs.A == 0, false, false, false); }
             0xB6 => { a_op!(|, read_ind!(get_reg16!(H, L))); flags!(self.regs.A == 0, false, false, false); }
-            0xF6 => { a_op!(|, self.read_next_byte(mmu)); flags!(self.regs.A == 0, false, false, false); }
+            0xF6 => { a_op!(|, self.read_next_byte(io)); flags!(self.regs.A == 0, false, false, false); }
             // XOR A, n
             0xAF => { a_op!(^, self.regs.A); flags!(self.regs.A == 0, false, false, false); }
             0xA8 => { a_op!(^, self.regs.B); flags!(self.regs.A == 0, false, false, false); }
@@ -252,7 +252,7 @@ impl CPU {
             0xAC => { a_op!(^, self.regs.H); flags!(self.regs.A == 0, false, false, false); }
             0xAD => { a_op!(^, self.regs.L); flags!(self.regs.A == 0, false, false, false); }
             0xAE => { a_op!(^, read_ind!(get_reg16!(H, L))); flags!(self.regs.A == 0, false, false, false); }
-            0xEE => { a_op!(^, self.read_next_byte(mmu)); flags!(self.regs.A == 0, false, false, false); }
+            0xEE => { a_op!(^, self.read_next_byte(io)); flags!(self.regs.A == 0, false, false, false); }
             // CP A, n
             0xBF => self.CP(self.regs.A),
             0xB8 => self.CP(self.regs.B),
@@ -261,8 +261,8 @@ impl CPU {
             0xBB => self.CP(self.regs.E),
             0xBC => self.CP(self.regs.H),
             0xBD => self.CP(self.regs.L),
-            0xBE => self.CP(self.read_byte(mmu, get_reg16!(H, L))),
-            0xFE => { let operand = self.read_next_byte(mmu); self.CP(operand); },
+            0xBE => self.CP(self.read_byte(io, get_reg16!(H, L))),
+            0xFE => { let operand = self.read_next_byte(io); self.CP(operand); },
             // INC n
             0x3C => self.regs.A = self.INC(self.regs.A),
             0x04 => self.regs.B = self.INC(self.regs.B),
@@ -289,7 +289,7 @@ impl CPU {
             0x29 => self.ADD16(get_reg16!(H, L)),
             0x39 => self.ADD16(self.regs.SP),
             // ADD SP, n
-            0xE8 => self.regs.SP = self.ADD_SP(mmu),
+            0xE8 => self.regs.SP = self.ADD_SP(io),
             // INC nn
             0x03 => INC_DEC16!(B, C, wrapping_add),
             0x13 => INC_DEC16!(D, E, wrapping_add),
@@ -302,16 +302,16 @@ impl CPU {
             0x3B => self.regs.SP = self.regs.SP.wrapping_sub(1),
 
             // Misc
-            0xCB => self.CB(mmu),
+            0xCB => self.CB(io),
             0x27 => self.DAA(),
             0x2F => self.CPL(),
             0x3F => self.CCF(),
             0x37 => self.SCF(),
             0x00 => {}, // NOP
-            0x76 => self.HALT(mmu),
+            0x76 => self.HALT(io),
             0x10 => { /*println!("STOP Called")*/ }, // STOP
-            0xF3 => self.IME = false, // DI
-            0xFB => { self.IME = true; self.emulate_instr(mmu); /* Interrupt not handled until next instruction */ }, // EI
+            0xF3 => self.IME = false,
+            0xFB => { self.IME = true; self.emulate_instr(io); /* Interrupt not handled until next instruction */ },
             
             // Rotates
             0x07 => { self.regs.A = self.RLC(self.regs.A); self.regs.clear_flag(Flag::Z); },
@@ -321,52 +321,52 @@ impl CPU {
             
             // Jumps
             // JP nn
-            0xC3 => { self.regs.PC = self.read_next_word(mmu); self.extra_cycle(); },
+            0xC3 => { self.regs.PC = self.read_next_word(io); self.extra_cycle(io); },
             //JP cc, nn
-            0xC2 => n_conditional!(Z, { let a = self.read_next_word(mmu); self.extra_cycle(); a}, self.read_next_word(mmu)),
-            0xCA => conditional!(Z, { let a = self.read_next_word(mmu); self.extra_cycle(); a}, self.read_next_word(mmu)),
-            0xD2 => n_conditional!(C, { let a = self.read_next_word(mmu); self.extra_cycle(); a}, self.read_next_word(mmu)),
-            0xDA => conditional!(C, { let a = self.read_next_word(mmu); self.extra_cycle(); a}, self.read_next_word(mmu)),
+            0xC2 => n_conditional!(Z, { let a = self.read_next_word(io); self.extra_cycle(io); a}, self.read_next_word(io)),
+            0xCA => conditional!(Z, { let a = self.read_next_word(io); self.extra_cycle(io); a}, self.read_next_word(io)),
+            0xD2 => n_conditional!(C, { let a = self.read_next_word(io); self.extra_cycle(io); a}, self.read_next_word(io)),
+            0xDA => conditional!(C, { let a = self.read_next_word(io); self.extra_cycle(io); a}, self.read_next_word(io)),
             // JP (HL)
             0xE9 => self.regs.PC = get_reg16!(H, L),
             // JR n
-            0x18 => { self.regs.PC = self.relative(mmu); self.extra_cycle(); },
+            0x18 => { self.regs.PC = self.relative(io); self.extra_cycle(io); },
             // JR cc, n
-            0x20 => n_conditional!(Z, { let a = self.relative(mmu); self.extra_cycle(); a }, self.read_next_byte(mmu)),
-            0x28 => conditional!(Z, { let a = self.relative(mmu); self.extra_cycle(); a }, self.read_next_byte(mmu)),
-            0x30 => n_conditional!(C, { let a = self.relative(mmu); self.extra_cycle(); a }, self.read_next_byte(mmu)),
-            0x38 => conditional!(C, { let a = self.relative(mmu); self.extra_cycle(); a }, self.read_next_byte(mmu)),
+            0x20 => n_conditional!(Z, { let a = self.relative(io); self.extra_cycle(io); a }, self.read_next_byte(io)),
+            0x28 => conditional!(Z, { let a = self.relative(io); self.extra_cycle(io); a }, self.read_next_byte(io)),
+            0x30 => n_conditional!(C, { let a = self.relative(io); self.extra_cycle(io); a }, self.read_next_byte(io)),
+            0x38 => conditional!(C, { let a = self.relative(io); self.extra_cycle(io); a }, self.read_next_byte(io)),
 
             // Calls
-            0xCD => self.regs.PC = self.CALL(mmu),
-            0xC4 => n_conditional!(Z, { self.CALL(mmu) }, self.read_next_word(mmu)),
-            0xCC => conditional!(Z, { self.CALL(mmu) }, self.read_next_word(mmu)),
-            0xD4 => n_conditional!(C, { self.CALL(mmu) }, self.read_next_word(mmu)),
-            0xDC => conditional!(C, { self.CALL(mmu) }, self.read_next_word(mmu)),
+            0xCD => self.regs.PC = self.CALL(io),
+            0xC4 => n_conditional!(Z, { self.CALL(io) }, self.read_next_word(io)),
+            0xCC => conditional!(Z, { self.CALL(io) }, self.read_next_word(io)),
+            0xD4 => n_conditional!(C, { self.CALL(io) }, self.read_next_word(io)),
+            0xDC => conditional!(C, { self.CALL(io) }, self.read_next_word(io)),
 
             // Restarts
-            0xC7 => self.RST(mmu, 0x00),
-            0xCF => self.RST(mmu, 0x08),
-            0xD7 => self.RST(mmu, 0x10),
-            0xDF => self.RST(mmu, 0x18),
-            0xE7 => self.RST(mmu, 0x20),
-            0xEF => self.RST(mmu, 0x28),
-            0xF7 => self.RST(mmu, 0x30),
-            0xFF => self.RST(mmu, 0x38),
+            0xC7 => self.RST(io, 0x00),
+            0xCF => self.RST(io, 0x08),
+            0xD7 => self.RST(io, 0x10),
+            0xDF => self.RST(io, 0x18),
+            0xE7 => self.RST(io, 0x20),
+            0xEF => self.RST(io, 0x28),
+            0xF7 => self.RST(io, 0x30),
+            0xFF => self.RST(io, 0x38),
             
             // Returns
-            0xC9 => self.regs.PC = self.RET(mmu),
-            0xC0 => { self.extra_cycle(); n_conditional!(Z, { self.RET(mmu) }, self.regs.PC); },
-            0xC8 => { self.extra_cycle(); conditional!(Z, { self.RET(mmu) }, self.regs.PC); },
-            0xD0 => { self.extra_cycle(); n_conditional!(C, { self.RET(mmu) }, self.regs.PC); },
-            0xD8 => { self.extra_cycle(); conditional!(C, { self.RET(mmu) }, self.regs.PC); },
-            0xD9 => { self.regs.PC = self.RET(mmu); self.IME = true; },
+            0xC9 => self.regs.PC = self.RET(io),
+            0xC0 => { self.extra_cycle(io); n_conditional!(Z, { self.RET(io) }, self.regs.PC); },
+            0xC8 => { self.extra_cycle(io); conditional!(Z, { self.RET(io) }, self.regs.PC); },
+            0xD0 => { self.extra_cycle(io); n_conditional!(C, { self.RET(io) }, self.regs.PC); },
+            0xD8 => { self.extra_cycle(io); conditional!(C, { self.RET(io) }, self.regs.PC); },
+            0xD9 => { self.regs.PC = self.RET(io); self.IME = true; },
 
             _ => panic!("Unoffical Opcode {:X}", opcode),
         };
     }
 
-    fn CB(&mut self, mmu: &mut MMU) {
+    fn CB(&mut self, io: &mut IO) {
         // Register Macros
         macro_rules! get_reg16 { ($high:ident, $low:ident) => { 
             (self.regs.$high as u16) << 8 | (self.regs.$low as u16)
@@ -377,14 +377,14 @@ impl CPU {
 
         // Addressing Mode Macros
         macro_rules! read_ind { ($addr:expr) => {
-            { let addr: u16 = $addr; self.read_byte(mmu, addr) }
+            { let addr: u16 = $addr; self.read_byte(io, addr) }
         }}
         macro_rules! write_ind { ($addr:expr, $value:expr) => {
-            { let addr: u16 = $addr; let value = $value; self.write_byte(mmu, addr, value); }
+            { let addr: u16 = $addr; let value = $value; self.write_byte(io, addr, value); }
         }}
 
 
-        let opcode = self.read_next_byte(mmu);
+        let opcode = self.read_next_byte(io);
 
         match opcode {
             // Misc
@@ -653,69 +653,69 @@ impl CPU {
 
     // Util
     // Memory
-    fn extra_cycle(&self) {
-        // 1 Machine Cycle
+    fn extra_cycle(&self, io: &mut IO) {
+        io.emulate_machine_cycle();
     }
 
-    fn read_byte(&self, mmu: &MMU, addr: u16) -> u8 {
-        // 1 Machine Cycle
-        return mmu.read(addr);
+    fn read_byte(&self, io: &mut IO, addr: u16) -> u8 {
+        io.emulate_machine_cycle();
+        return io.read(addr);
     }
 
-    fn read_word(&self, mmu: &MMU, addr: u16) -> u16 {
-        return self.read_byte(mmu, addr) as u16 | (self.read_byte(mmu, addr.wrapping_add(1)) as u16) << 8;
+    fn read_word(&self, io: &mut IO, addr: u16) -> u16 {
+        return self.read_byte(io, addr) as u16 | (self.read_byte(io, addr.wrapping_add(1)) as u16) << 8;
     }
 
-    fn write_byte(&self, mmu: &mut MMU, addr: u16, value: u8) {
-        // 1 Machine Cycle
-        mmu.write(addr, value);
+    fn write_byte(&self, io: &mut IO, addr: u16, value: u8) {
+        io.emulate_machine_cycle();
+        io.write(addr, value);
     }
 
-    fn write_word(&self, mmu: &mut MMU, addr: u16, value: u16) {
+    fn write_word(&self, io: &mut IO, addr: u16, value: u16) {
         let bytes = value.to_be_bytes();
-        self.write_byte(mmu, addr, bytes[1]);
-        self.write_byte(mmu, addr.wrapping_add(1), bytes[0]);
+        self.write_byte(io, addr, bytes[1]);
+        self.write_byte(io, addr.wrapping_add(1), bytes[0]);
     }
 
-    fn read_next_byte(&mut self, mmu: &MMU) -> u8 {
-        let value = self.read_byte(mmu, self.regs.PC);
+    fn read_next_byte(&mut self, io: &mut IO) -> u8 {
+        let value = self.read_byte(io, self.regs.PC);
         self.regs.PC = self.regs.PC.wrapping_add(1);
         return value;
     }
 
-    fn read_next_word(&mut self, mmu: &MMU) -> u16 {
-        return self.read_next_byte(mmu) as u16 | (self.read_next_byte(mmu) as u16) << 8;
+    fn read_next_word(&mut self, io: &mut IO) -> u16 {
+        return self.read_next_byte(io) as u16 | (self.read_next_byte(io) as u16) << 8;
     }
 
     // Stack
-    fn stack_push8(&mut self, mmu: &mut MMU, value: u8) {
+    fn stack_push8(&mut self, io: &mut IO, value: u8) {
         self.regs.SP = self.regs.SP.wrapping_sub(1);
-        self.write_byte(mmu, self.regs.SP, value);
+        self.write_byte(io, self.regs.SP, value);
     }
 
-    fn stack_push16(&mut self, mmu: &mut MMU, value: u16) {
+    fn stack_push16(&mut self, io: &mut IO, value: u16) {
         let bytes= value.to_be_bytes();
-        self.stack_push8(mmu, bytes[0]);
-        self.stack_push8(mmu, bytes[1]);
+        self.stack_push8(io, bytes[0]);
+        self.stack_push8(io, bytes[1]);
     }
 
-    fn stack_pop8(&mut self, mmu: &MMU) -> u8 {
-        let value = self.read_byte(mmu, self.regs.SP);
+    fn stack_pop8(&mut self, io: &mut IO) -> u8 {
+        let value = self.read_byte(io, self.regs.SP);
         self.regs.SP = self.regs.SP.wrapping_add(1);
         return value;
     }
 
-    fn stack_pop16(&mut self, mmu: &MMU) -> u16 {
-        return self.stack_pop8(mmu) as u16 | (self.stack_pop8(mmu) as u16) << 8;
+    fn stack_pop16(&mut self, io: &mut IO) -> u16 {
+        return self.stack_pop8(io) as u16 | (self.stack_pop8(io) as u16) << 8;
     }
 
     // Interrupts
-    pub fn handle_interrupt(&mut self, mmu: &mut MMU, vector: u16) {
+    pub fn handle_interrupt(&mut self, io: &mut IO, vector: u16) {
         // ISR - Interrupt Service Routine
-        self.extra_cycle();
-        self.extra_cycle();
-        self.stack_push16(mmu, self.regs.PC);
-        self.extra_cycle();
+        self.extra_cycle(io);
+        self.extra_cycle(io);
+        self.stack_push16(io, self.regs.PC);
+        self.extra_cycle(io);
         self.regs.PC = vector;
     }
 
@@ -813,8 +813,8 @@ impl CPU {
     }
 
     #[inline]
-    fn ADD_SP(&mut self, mmu: &MMU) -> u16 {
-        let operand = self.read_next_byte(mmu) as i8 as u16;
+    fn ADD_SP(&mut self, io: &mut IO) -> u16 {
+        let operand = self.read_next_byte(io) as i8 as u16;
         let result: u32 = (self.regs.SP as u32).wrapping_add(operand as u32);
 
         self.regs.clear_flags(Flag::Z as u8 | Flag::N as u8);
@@ -861,16 +861,16 @@ impl CPU {
     }
 
     #[inline]
-    fn HALT(&mut self, mmu: &mut MMU) {
+    fn HALT(&mut self, io: &mut IO) {
         if self.IME {
             self.is_halted = true;
         } else {
-            if mmu.read(CPU::IE_ADDR) & mmu.read(CPU::IF_ADDR) & 0x1F == 0 {
+            if io.IE & io.IF & 0x1F == 0 {
                 self.is_halted = true;
             } else {
                 // HALT bug where PC is not incremented when fetching opcode
-                let opcode = self.read_byte(mmu, self.regs.PC);
-                self.decode_exec(mmu, opcode);
+                let opcode = self.read_byte(io, self.regs.PC);
+                self.decode_exec(io, opcode);
             }
         }
     }
@@ -983,29 +983,29 @@ impl CPU {
     }
 
     #[inline]
-    fn relative(&mut self, mmu: &MMU) -> u16 {
-        let val = self.read_next_byte(mmu) as i8;
+    fn relative(&mut self, io: &mut IO) -> u16 {
+        let val = self.read_next_byte(io) as i8;
         self.regs.PC.wrapping_add(val as u16)
     }
 
     #[inline]
-    fn CALL(&mut self, mmu: &mut MMU) -> u16 {
-        self.stack_push16(mmu, self.regs.PC.wrapping_add(2));
-        self.extra_cycle();
-        self.read_next_word(mmu)
+    fn CALL(&mut self, io: &mut IO) -> u16 {
+        self.stack_push16(io, self.regs.PC.wrapping_add(2));
+        self.extra_cycle(io);
+        self.read_next_word(io)
     }
 
     #[inline]
-    fn RST(&mut self, mmu: &mut MMU, addr: u16) {
-        self.extra_cycle();
-        self.stack_push16(mmu, self.regs.PC);
+    fn RST(&mut self, io: &mut IO, addr: u16) {
+        self.extra_cycle(io);
+        self.stack_push16(io, self.regs.PC);
         self.regs.PC = addr;
     }
 
     #[inline]
-    fn RET(&mut self, mmu: &mut MMU) -> u16 {
-        let addr = self.stack_pop16(mmu);
-        self.extra_cycle();
+    fn RET(&mut self, io: &mut IO) -> u16 {
+        let addr = self.stack_pop16(io);
+        self.extra_cycle(io);
         addr
     }
 }

@@ -1,8 +1,9 @@
 #[macro_use]
+
 mod registers;
 mod instructions;
 
-use super::MMU;
+use super::IO;
 use registers::Registers;
 use registers::Flag;
 
@@ -18,41 +19,41 @@ impl CPU {
             regs: Registers::new(),
             IME: false,
             is_halted: false,
-            timer: Timer::new(),
         }
     }
 
-    pub fn emulate(&mut self, mmu: &mut MMU) {
-        self.handle_interrupts(mmu);
-        if !self.is_halted || true {
-            self.emulate_instr(mmu);
+    pub fn emulate(&mut self, io: &mut IO) {
+        self.handle_interrupts(io);
+        if !self.is_halted {
+            self.emulate_instr(io);
+        } else {
+            io.emulate_machine_cycle();
         }
     }
 
-    const IF_ADDR: u16 = 0xFF0F;
-    const IE_ADDR: u16 = 0xFFFF;
-    const NUM_INTERRUPTS: usize = 5;
-    const INTERRUPT_VECTORS: [u16; CPU::NUM_INTERRUPTS] = [0x0040, 0x0048, 0x0050, 0x0058, 0x0060];
+    pub const NUM_INTERRUPTS: usize = 5;
+    pub const INTERRUPT_VECTORS: [u16; CPU::NUM_INTERRUPTS] = [0x0040, 0x0048, 0x0050, 0x0058, 0x0060];
 
-    fn handle_interrupts(&mut self, mmu: &mut MMU) {
+    fn handle_interrupts(&mut self, io: &mut IO) {
         if !self.is_halted && !self.IME { return }
 
-        let IF = mmu.read(CPU::IF_ADDR);
-        let interrupts = IF & mmu.read(CPU::IE_ADDR);
+        let interrupts = io.IF & io.IE;
 
         for i in 0..5 {
             let mask = 1u8 << i;
             if interrupts & mask != 0 {
-                let vector = if self.IME { CPU::INTERRUPT_VECTORS[i] } else { self.regs.PC };
-                self.handle_interrupt(mmu, vector);
-                mmu.write(CPU::IF_ADDR, IF & !mask);
+                self.is_halted = false;
+                if self.IME {
+                    self.handle_interrupt(io, CPU::INTERRUPT_VECTORS[i]);
+                    io.IF &= !mask;
+                }
             }
         }
     }
 
-    pub fn emulate_boot_rom(&mut self, mmu: &mut MMU) {
+    pub fn emulate_boot_rom(&mut self, io: &mut IO) {
         while self.regs.PC < 0x100 {
-            self.emulate_instr(mmu);
+            self.emulate_instr(io);
         }
     }
 }

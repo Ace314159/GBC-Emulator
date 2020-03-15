@@ -1,14 +1,14 @@
-mod mmu;
 mod cpu;
+mod io;
 
-use mmu::MMU;
 use cpu::CPU;
+use io::IO;
 
 use std::fs;
 
 pub struct GBC {
-    mmu: MMU,
     cpu: CPU,
+    io: IO,
 }
 
 impl GBC {
@@ -25,17 +25,17 @@ impl GBC {
         }
 
         let mut gbc = GBC {
-            mmu: MMU::new(rom),
             cpu: CPU::new(),
+            io: IO::new(rom),
         };
 
-        gbc.cpu.emulate_boot_rom(&mut gbc.mmu);
-        gbc.mmu.swap_boot_rom(&mut boot_rom);
+        gbc.cpu.emulate_boot_rom(&mut gbc.io);
+        gbc.io.swap_boot_rom(&mut boot_rom);
 
         gbc
     }
 
     pub fn emulate(&mut self) {
-        self.cpu.emulate(&mut self.mmu);
+        self.cpu.emulate(&mut self.io);
     }
 }

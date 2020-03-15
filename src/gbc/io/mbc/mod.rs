@@ -1,9 +1,9 @@
 mod none;
 mod mbc1;
 
-pub trait MemoryBankController {
-    fn read(&self, addr: u16) -> u8;
-    fn write(&mut self, addr: u16, value: u8);
+use super::MemoryHandler;
+
+pub trait MemoryBankController: MemoryHandler {
     fn get_boot_rom_ptr(&mut self) -> *mut [u8; 0x100];
 }
 

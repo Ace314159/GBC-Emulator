@@ -1,4 +1,5 @@
 use super::MemoryBankController;
+use super::MemoryHandler;
 
 pub struct MBC1 {
     rom: Vec<u8>,
@@ -22,7 +23,7 @@ impl MBC1 {
     }
 }
 
-impl MemoryBankController for MBC1 {
+impl MemoryHandler for MBC1 {
     fn read(&self, addr: u16) -> u8 {
         match addr & 0xC000 {
             0x0000 => self.rom[addr as usize],
@@ -45,7 +46,9 @@ impl MemoryBankController for MBC1 {
         }
         assert_eq!(self.is_rom_banking, true); // TODO: Add support for RAM Banking
     }
+}
 
+impl MemoryBankController for MBC1 {
     fn get_boot_rom_ptr(&mut self) -> *mut [u8; 0x100] {
         self.rom[..0x100].as_mut_ptr() as *mut [u8; 0x100]
     }
