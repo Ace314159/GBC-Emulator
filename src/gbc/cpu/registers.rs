@@ -30,31 +30,31 @@ pub enum Flag {
 }
 
 pub struct Registers {
-    pub A: u8,
-    pub F: u8,
-    pub B: u8,
-    pub C: u8,
-    pub D: u8,
-    pub E: u8,
-    pub H: u8,
-    pub L: u8,
-    pub SP: u16,
-    pub PC: u16,
+    pub a: u8,
+    pub f: u8,
+    pub b: u8,
+    pub c: u8,
+    pub d: u8,
+    pub e: u8,
+    pub h: u8,
+    pub l: u8,
+    pub sp: u16,
+    pub pc: u16,
 }
 
 impl Registers {
     pub fn new() -> Self {
         Registers {
-            A: 0,
-            F: 0,
-            B: 0,
-            C: 0,
-            D: 0,
-            E: 0,
-            H: 0,
-            L: 0,
-            SP: 0,
-            PC: 0,
+            a: 0,
+            f: 0,
+            b: 0,
+            c: 0,
+            d: 0,
+            e: 0,
+            h: 0,
+            l: 0,
+            sp: 0,
+            pc: 0,
         }
     }
 
@@ -69,26 +69,26 @@ impl Registers {
 
     #[inline]
     pub fn set_flag(&mut self, flag: Flag) {
-        self.F |= flag as u8;
+        self.f |= flag as u8;
     }
 
     #[inline]
     pub fn set_flags(&mut self, flags: u8) {
-        self.F |= flags;
+        self.f |= flags;
     }
 
     #[inline]
     pub fn clear_flag(&mut self, flag: Flag) {
-        self.F &= !(flag as u8);
+        self.f &= !(flag as u8);
     }
 
     #[inline]
     pub fn clear_flags(&mut self, flags: u8) {
-        self.F &= !flags;
+        self.f &= !flags;
     }
 
     #[inline]
     pub fn get_flag(&self, flag: Flag) -> bool {
-        self.F & (flag as u8) != 0
+        self.f & (flag as u8) != 0
     }
 }

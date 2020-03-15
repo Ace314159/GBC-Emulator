@@ -21,9 +21,9 @@ pub struct IO {
     wram: RAM,
     serial: Serial,
     timer: Timer,
-    pub IE: u8,
+    pub int_enable: u8,
     hram: RAM,
-    pub IF: u8,
+    pub int_flags: u8,
     unusable: Unusable,
 }
 
@@ -36,9 +36,9 @@ impl IO {
             wram: RAM::new(0xC000, 0xDFFF),
             serial: Serial::new(),
             timer: Timer::new(),
-            IE: 0,
+            int_enable: 0,
             hram: RAM::new(0xFF80, 0xFFFE),
-            IF: 0,
+            int_flags: 0,
             unusable: Unusable {},
         }
     }
@@ -50,9 +50,9 @@ impl IO {
             0xC000 ..= 0xDFFF => self.wram.read(addr),
             0xFF01 ..= 0xFF02 => self.serial.read(addr),
             0xFF04 ..= 0xFF07 => self.timer.read(addr),
-            0xFF0F => self.IF,
+            0xFF0F => self.int_flags,
             0xFF80 ..= 0xFFFE => self.hram.read(addr),
-            0xFFFF => self.IE,
+            0xFFFF => self.int_enable,
             _ => self.unusable.read(addr),
         }
     }
@@ -64,16 +64,16 @@ impl IO {
             0xC000 ..= 0xDFFF => self.wram.write(addr, value),
             0xFF01 ..= 0xFF02 => self.serial.write(addr, value),
             0xFF04 ..= 0xFF07 => self.timer.write(addr, value),
-            0xFF0F => self.IF = value,
+            0xFF0F => self.int_flags = value,
             0xFF80 ..= 0xFFFE => self.hram.write(addr, value),
-            0xFFFF => self.IE = value,
+            0xFFFF => self.int_enable = value,
             _ => self.unusable.write(addr, value),
         };
     }
 
     pub fn emulate_machine_cycle(&mut self) {
         if self.timer.emulate() {
-            self.IF |= IO::TIMER_INT;
+            self.int_flags |= IO::TIMER_INT;
         }
     }
 
