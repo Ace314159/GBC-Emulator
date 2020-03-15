@@ -170,17 +170,17 @@ impl CPU {
             // Stack
             0x08 => mem_reg16!(self.read_next_word(io), sp),
             0xF8 => { set_reg16!(h, l, self.add_sp(io)); self.internal_cycle(io); },
-            0xF9 => self.regs.sp = get_reg16!(h, l),
+            0xF9 => { self.regs.sp = get_reg16!(h, l); self.internal_cycle(io); },
             // POP nn
             0xC1 => set_reg16!(b, c, self.stack_pop16(io)),
             0xD1 => set_reg16!(d, e, self.stack_pop16(io)),
             0xE1 => set_reg16!(h, l, self.stack_pop16(io)),
             0xF1 => set_reg16!(a, f, self.stack_pop16(io) & 0xFFF0),
             // PUSH nn
-            0xC5 => self.stack_push16(io, get_reg16!(b, c)),
-            0xD5 => self.stack_push16(io, get_reg16!(d, e)),
-            0xE5 => self.stack_push16(io, get_reg16!(h, l)),
-            0xF5 => self.stack_push16(io, get_reg16!(a, f)),
+            0xC5 => { self.internal_cycle(io); self.stack_push16(io, get_reg16!(b, c)); },
+            0xD5 => { self.internal_cycle(io); self.stack_push16(io, get_reg16!(d, e)); },
+            0xE5 => { self.internal_cycle(io); self.stack_push16(io, get_reg16!(h, l)); },
+            0xF5 => { self.internal_cycle(io); self.stack_push16(io, get_reg16!(a, f)); },
 
             // 8 Bit ALU
             // ADD A, n
@@ -688,7 +688,6 @@ impl CPU {
 
     fn stack_push16(&mut self, io: &mut IO, value: u16) {
         let bytes= value.to_be_bytes();
-        self.internal_cycle(io);
         self.stack_push8(io, bytes[0]);
         self.stack_push8(io, bytes[1]);
     }
@@ -984,9 +983,10 @@ impl CPU {
 
     #[inline]
     fn call(&mut self, io: &mut IO) -> u16 {
+        let addr = self.read_next_word(io);
         self.internal_cycle(io);
-        self.stack_push16(io, self.regs.pc.wrapping_add(2));
-        self.read_next_word(io)
+        self.stack_push16(io, self.regs.pc);
+        addr
     }
 
     #[inline]
