@@ -169,7 +169,7 @@ impl CPU {
 
             // Stack
             0x08 => mem_reg16!(self.read_next_word(io), sp),
-            0xF8 => set_reg16!(h, l, self.add_sp(io)),
+            0xF8 => { set_reg16!(h, l, self.add_sp(io)); self.extra_cycle(io); },
             0xF9 => self.regs.sp = get_reg16!(h, l),
             // POP nn
             0xC1 => set_reg16!(b, c, self.stack_pop16(io)),
@@ -291,14 +291,14 @@ impl CPU {
             // ADD SP, n
             0xE8 => self.regs.sp = self.add_sp(io),
             // INC nn
-            0x03 => INC_DEC16!(b, c, wrapping_add),
-            0x13 => INC_DEC16!(d, e, wrapping_add),
-            0x23 => INC_DEC16!(h, l, wrapping_add),
+            0x03 => { INC_DEC16!(b, c, wrapping_add); self.extra_cycle(io); },
+            0x13 => { INC_DEC16!(d, e, wrapping_add); self.extra_cycle(io); },
+            0x23 => { INC_DEC16!(h, l, wrapping_add); self.extra_cycle(io); },
             0x33 => self.regs.sp = self.regs.sp.wrapping_add(1),
             // DEC nn
-            0x0B => INC_DEC16!(b, c, wrapping_sub),
-            0x1B => INC_DEC16!(d, e, wrapping_sub),
-            0x2B => INC_DEC16!(h, l, wrapping_sub),
+            0x0B => { INC_DEC16!(b, c, wrapping_sub); self.extra_cycle(io); },
+            0x1B => { INC_DEC16!(d, e, wrapping_sub); self.extra_cycle(io); },
+            0x2B => { INC_DEC16!(h, l, wrapping_sub); self.extra_cycle(io); },
             0x3B => self.regs.sp = self.regs.sp.wrapping_sub(1),
 
             // Misc
