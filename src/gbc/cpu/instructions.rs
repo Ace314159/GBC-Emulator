@@ -659,11 +659,11 @@ impl CPU {
 
     fn read_byte(&self, io: &mut IO, addr: u16) -> u8 {
         io.emulate_machine_cycle();
-        return io.read(addr);
+        io.read(addr)
     }
 
     fn read_word(&self, io: &mut IO, addr: u16) -> u16 {
-        return self.read_byte(io, addr) as u16 | (self.read_byte(io, addr.wrapping_add(1)) as u16) << 8;
+        self.read_byte(io, addr) as u16 | (self.read_byte(io, addr.wrapping_add(1)) as u16) << 8
     }
 
     fn write_byte(&self, io: &mut IO, addr: u16, value: u8) {
@@ -680,11 +680,11 @@ impl CPU {
     fn read_next_byte(&mut self, io: &mut IO) -> u8 {
         let value = self.read_byte(io, self.regs.PC);
         self.regs.PC = self.regs.PC.wrapping_add(1);
-        return value;
+        value
     }
 
     fn read_next_word(&mut self, io: &mut IO) -> u16 {
-        return self.read_next_byte(io) as u16 | (self.read_next_byte(io) as u16) << 8;
+        self.read_next_byte(io) as u16 | (self.read_next_byte(io) as u16) << 8
     }
 
     // Stack
@@ -702,11 +702,11 @@ impl CPU {
     fn stack_pop8(&mut self, io: &mut IO) -> u8 {
         let value = self.read_byte(io, self.regs.SP);
         self.regs.SP = self.regs.SP.wrapping_add(1);
-        return value;
+        value
     }
 
     fn stack_pop16(&mut self, io: &mut IO) -> u16 {
-        return self.stack_pop8(io) as u16 | (self.stack_pop8(io) as u16) << 8;
+        self.stack_pop8(io) as u16 | (self.stack_pop8(io) as u16) << 8
     }
 
     // Interrupts

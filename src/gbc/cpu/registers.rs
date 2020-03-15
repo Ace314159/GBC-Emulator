@@ -89,6 +89,6 @@ impl Registers {
 
     #[inline]
     pub fn get_flag(&self, flag: Flag) -> bool {
-        return self.F & (flag as u8) != 0;
+        self.F & (flag as u8) != 0
     }
 }
