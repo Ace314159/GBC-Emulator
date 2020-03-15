@@ -1,11 +1,13 @@
 mod header;
 mod mbc;
+mod ppu;
 mod ram;
 mod serial;
 mod timer;
 
 use header::Header;
 use mbc::MemoryBankController;
+use ppu::PPU;
 use ram::RAM;
 use serial::Serial;
 use timer::Timer;
@@ -17,6 +19,7 @@ pub trait MemoryHandler {
 
 pub struct IO {
     mbc: Box<dyn MemoryBankController>,
+    ppu: PPU,
     vram: RAM,
     wram: RAM,
     serial: Serial,
@@ -32,6 +35,7 @@ impl IO {
         let header = Header::new(&rom);
         IO {
             mbc: mbc::get_mbc(header.get_cartridge_type(), rom),
+            ppu: PPU::new(),
             vram: RAM::new(0x8000, 0x9FFF),
             wram: RAM::new(0xC000, 0xDFFF),
             serial: Serial::new(),
@@ -51,6 +55,7 @@ impl IO {
             0xFF01 ..= 0xFF02 => self.serial.read(addr),
             0xFF04 ..= 0xFF07 => self.timer.read(addr),
             0xFF0F => self.int_flags,
+            0xFF40 ..= 0xFF4A => self.ppu.read(addr),
             0xFF80 ..= 0xFFFE => self.hram.read(addr),
             0xFFFF => self.int_enable,
             _ => self.unusable.read(addr),
@@ -65,6 +70,7 @@ impl IO {
             0xFF01 ..= 0xFF02 => self.serial.write(addr, value),
             0xFF04 ..= 0xFF07 => self.timer.write(addr, value),
             0xFF0F => self.int_flags = value,
+            0xFF40 ..= 0xFF4A => self.ppu.write(addr, value),
             0xFF80 ..= 0xFFFE => self.hram.write(addr, value),
             0xFFFF => self.int_enable = value,
             _ => self.unusable.write(addr, value),
