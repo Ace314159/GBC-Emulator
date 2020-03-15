@@ -1,6 +1,7 @@
 use super::MemoryHandler;
 
 pub struct Serial {
+    // Registers
     data: u8,
     control: u8,
 }

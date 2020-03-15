@@ -1,12 +1,15 @@
 use super::MemoryHandler;
 
 pub struct Timer {
+    // Registers
     divider_counter: u16,
     counter: u8,
     modulo: u8,
+    // Control
     enabled: bool,
     clock_select: u8,
 
+    // Other
     prev_counter_bit: bool,
 }
 
