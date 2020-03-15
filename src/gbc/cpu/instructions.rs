@@ -284,22 +284,22 @@ impl CPU {
 
             // 16 Bit ALU
             // ADD HL, n
-            0x09 => self.add16(get_reg16!(b, c)),
-            0x19 => self.add16(get_reg16!(d, e)),
-            0x29 => self.add16(get_reg16!(h, l)),
-            0x39 => self.add16(self.regs.sp),
+            0x09 => { self.add16(get_reg16!(b, c)); self.internal_cycle(io); },
+            0x19 => { self.add16(get_reg16!(d, e)); self.internal_cycle(io); },
+            0x29 => { self.add16(get_reg16!(h, l)); self.internal_cycle(io); },
+            0x39 => { self.add16(self.regs.sp); self.internal_cycle(io); },
             // ADD SP, n
-            0xE8 => self.regs.sp = self.add_sp(io),
+            0xE8 => { self.regs.sp = self.add_sp(io); self.internal_cycle(io); self.internal_cycle(io); },
             // INC nn
             0x03 => { INC_DEC16!(b, c, wrapping_add); self.internal_cycle(io); },
             0x13 => { INC_DEC16!(d, e, wrapping_add); self.internal_cycle(io); },
             0x23 => { INC_DEC16!(h, l, wrapping_add); self.internal_cycle(io); },
-            0x33 => self.regs.sp = self.regs.sp.wrapping_add(1),
+            0x33 => { self.regs.sp = self.regs.sp.wrapping_add(1); self.internal_cycle(io); },
             // DEC nn
             0x0B => { INC_DEC16!(b, c, wrapping_sub); self.internal_cycle(io); },
             0x1B => { INC_DEC16!(d, e, wrapping_sub); self.internal_cycle(io); },
             0x2B => { INC_DEC16!(h, l, wrapping_sub); self.internal_cycle(io); },
-            0x3B => self.regs.sp = self.regs.sp.wrapping_sub(1),
+            0x3B => { self.regs.sp = self.regs.sp.wrapping_sub(1); self.internal_cycle(io); },
 
             // Misc
             0xCB => self.prefix(io),
