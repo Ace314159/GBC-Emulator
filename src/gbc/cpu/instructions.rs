@@ -6,10 +6,6 @@ use super::Flag;
 
 impl CPU {
     pub fn emulate_instr(&mut self, io: &mut IO) {
-        if self.regs.pc == 0x68 {
-            self.regs.pc = 0x100;
-        }
-
         let opcode = self.read_next_byte(io);
         self.decode_exec(io, opcode);
     }
