@@ -73,7 +73,7 @@ impl IO {
 
     pub fn emulate_machine_cycle(&mut self) {
         if self.timer.emulate() {
-            self.IF |= 0x04;
+            self.IF |= IO::TIMER_INT;
         }
     }
 
@@ -85,6 +85,12 @@ impl IO {
             std::ptr::swap(x, self.mbc.get_boot_rom_ptr());
         }
     }
+
+    pub const VBLANK_INT: u8 = 1;
+    pub const STAT_INT: u8 = 1 << 1;
+    pub const TIMER_INT: u8 = 1 << 2;
+    pub const SERIAL_INT: u8 = 1 << 3;
+    pub const JOYPAD_INT: u8 = 1 << 4;
 }
 
 struct Unusable;

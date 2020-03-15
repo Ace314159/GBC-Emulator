@@ -31,16 +31,15 @@ impl CPU {
         }
     }
 
-    pub const NUM_INTERRUPTS: usize = 5;
-    pub const INTERRUPT_VECTORS: [u16; CPU::NUM_INTERRUPTS] = [0x0040, 0x0048, 0x0050, 0x0058, 0x0060];
+    pub const INTERRUPT_VECTORS: [u16; 5] = [0x0040, 0x0048, 0x0050, 0x0058, 0x0060];
 
     fn handle_interrupts(&mut self, io: &mut IO) {
         if !self.is_halted && !self.IME { return }
 
         let interrupts = io.IF & io.IE;
 
-        for i in 0..5 {
-            let mask = 1u8 << i;
+        for i in 0..CPU::INTERRUPT_VECTORS.len() {
+            let mask = 1 << i;
             if interrupts & mask != 0 {
                 self.is_halted = false;
                 if self.IME {
