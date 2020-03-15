@@ -688,6 +688,7 @@ impl CPU {
 
     fn stack_push16(&mut self, io: &mut IO, value: u16) {
         let bytes= value.to_be_bytes();
+        self.extra_cycle(io);
         self.stack_push8(io, bytes[0]);
         self.stack_push8(io, bytes[1]);
     }
@@ -983,8 +984,8 @@ impl CPU {
 
     #[inline]
     fn call(&mut self, io: &mut IO) -> u16 {
-        self.stack_push16(io, self.regs.pc.wrapping_add(2));
         self.extra_cycle(io);
+        self.stack_push16(io, self.regs.pc.wrapping_add(2));
         self.read_next_word(io)
     }
 
