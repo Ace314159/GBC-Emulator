@@ -29,6 +29,8 @@ pub struct PPU {
     bg_palette: u8,
     obj_palette1: u8,
     obj_palette2: u8,
+    
+    vram: [u8; 0x2000]
 }
 
 impl MemoryHandler for PPU {
@@ -36,6 +38,7 @@ impl MemoryHandler for PPU {
         macro_rules! shift { ($bit:ident, $num:expr) => { ((self.$bit as u8) << $num) } }
 
         match addr {
+            0x8000 ..= 0x9FFF => self.vram[addr as usize - 0x8000],
             0xFF40 => shift!(lcd_enable, 7) | shift!(window_tiles_select, 6) | shift!(window_enable, 5) |
                       shift!(bg_window_tiles_select, 4) | shift!(bg_tiles_select, 3) | shift!(obj_size, 2) |
                       shift!(obj_enable, 1) | shift!(bg_priority, 0),
@@ -56,6 +59,7 @@ impl MemoryHandler for PPU {
 
     fn write(&mut self, addr: u16, value: u8) {
         match addr {
+            0x8000 ..= 0x9FFF => self.vram[addr as usize - 0x8000] = value,
             0xFF40 => {
                 self.lcd_enable = value & (1 << 7) != 0;
                 self.window_tiles_select = value & (1 << 6) != 0;
@@ -119,6 +123,8 @@ impl PPU {
             bg_palette: 0,
             obj_palette1: 0,
             obj_palette2: 0,
+
+            vram: [0; 0x2000],
         }
     }
 }

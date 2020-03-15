@@ -20,7 +20,6 @@ pub trait MemoryHandler {
 pub struct IO {
     mbc: Box<dyn MemoryBankController>,
     ppu: PPU,
-    vram: RAM,
     wram: RAM,
     serial: Serial,
     timer: Timer,
@@ -36,7 +35,6 @@ impl IO {
         IO {
             mbc: mbc::get_mbc(header.get_cartridge_type(), rom),
             ppu: PPU::new(),
-            vram: RAM::new(0x8000, 0x9FFF),
             wram: RAM::new(0xC000, 0xDFFF),
             serial: Serial::new(),
             timer: Timer::new(),
@@ -49,8 +47,9 @@ impl IO {
 
     pub fn read(&self, addr: u16) -> u8 {
         match addr {
-            0x0000 ..= 0x7FFF | 0xA000 ..= 0xBFFF => self.mbc.read(addr),
-            0x8000 ..= 0x9FFF => self.vram.read(addr),
+            0x0000 ..= 0x7FFF => self.mbc.read(addr),
+            0x8000 ..= 0x9FFF => self.ppu.read(addr),
+            0xA000 ..= 0xBFFF => self.mbc.read(addr),
             0xC000 ..= 0xDFFF => self.wram.read(addr),
             0xFF01 ..= 0xFF02 => self.serial.read(addr),
             0xFF04 ..= 0xFF07 => self.timer.read(addr),
@@ -64,8 +63,9 @@ impl IO {
 
     pub fn write(&mut self, addr: u16, value: u8) {
         match addr {
-            0x0000 ..= 0x7FFF | 0xA000 ..= 0xBFFF => self.mbc.write(addr, value),
-            0x8000 ..= 0x9FFF => self.vram.write(addr, value),
+            0x0000 ..= 0x7FFF => self.mbc.write(addr, value),
+            0x8000 ..= 0x9FFF => self.ppu.write(addr, value),
+            0xA000 ..= 0xBFFF => self.mbc.write(addr, value),
             0xC000 ..= 0xDFFF => self.wram.write(addr, value),
             0xFF01 ..= 0xFF02 => self.serial.write(addr, value),
             0xFF04 ..= 0xFF07 => self.timer.write(addr, value),
