@@ -157,7 +157,7 @@ impl PPU {
                     let tile_num = self.vram[map_addr as usize - 0x8000];
                     let tile_addr = if self.bg_window_tiles_select {
                         0x8000 + ((tile_num as usize) << 4)
-                    } else { 0x9000 + ((tile_num as i8 as usize) << 4) };
+                    } else { 0x9000u16.wrapping_add((tile_num as i8 as u16) << 4) as usize };
                     let tile_addr = tile_addr + 2 * (y as usize % 8);
 
                     let highs = self.vram[tile_addr - 0x8000];
