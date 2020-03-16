@@ -20,8 +20,8 @@ pub struct Screen {
 }
 
 impl Screen {
-    const WIDTH: u32 = 160;
-    const HEIGHT: u32 = 144;
+    pub const WIDTH: u32 = 160;
+    pub const HEIGHT: u32 = 144;
     const SCALE: u32 = 3;
 
     pub fn new() -> Self {
