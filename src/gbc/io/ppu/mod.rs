@@ -30,7 +30,7 @@ pub struct PPU {
     window_y: u8,
     window_x: u8,
     // Palettes
-    bg_palette: u8,
+    bg_palette: [usize; 4],
     obj_palette1: u8,
     obj_palette2: u8,
     
@@ -58,7 +58,7 @@ impl MemoryHandler for PPU {
             0xFF43 => self.scroll_x,
             0xFF44 => self.y_coord,
             0xFF45 => self.y_coord_comp,
-            0xFF47 => self.bg_palette,
+            0xFF47 => self.bg_palette.iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 ),
             0xFF48 => self.obj_palette1,
             0xFF49 => self.obj_palette2,
             0xFF4A => self.window_y,
@@ -90,7 +90,7 @@ impl MemoryHandler for PPU {
             0xFF43 => self.scroll_x = value,
             0xFF44 => {},
             0xFF45 => self.y_coord_comp = value,
-            0xFF47 => self.bg_palette = value,
+            0xFF47 => for i in 0..4 { self.bg_palette[i] = (value as usize >> 2 * i) & 0x3; },
             0xFF48 => self.obj_palette1 = value,
             0xFF49 => self.obj_palette2 = value,
             0xFF4A => self.window_y = value,
@@ -128,7 +128,7 @@ impl PPU {
             window_y: 0,
             window_x: 0,
             // Palettes
-            bg_palette: 0,
+            bg_palette: [0, 1, 2, 3],
             obj_palette1: 0,
             obj_palette2: 0,
 
@@ -140,6 +140,8 @@ impl PPU {
             screen: Screen::new(),
         }
     }
+
+    const SHADES: [[u8; 3]; 4] = [[0xFF, 0xFF, 0xFF], [0xB2, 0xB2, 0xB2], [0x66, 0x66, 0x66], [0, 0, 0]];
 
     pub fn emulate(&mut self) -> u8 {
         let mut interrupt = 0;
@@ -165,29 +167,8 @@ impl PPU {
                                                 map_num as u32 * 8 + bit) as usize;
                         let high = (highs >> (7 - bit)) & 0x1;
                         let low = (lows >> (7 - bit)) & 0x1;
-                        match (high << 1) | low {
-                            0 => {
-                                self.screen.pixels[pixel_index] = 0;
-                                self.screen.pixels[pixel_index + 1] = 0;
-                                self.screen.pixels[pixel_index + 2] = 0;
-                            },
-                            1 => {
-                                self.screen.pixels[pixel_index] = 255;
-                                self.screen.pixels[pixel_index + 1] = 0;
-                                self.screen.pixels[pixel_index + 2] = 0;
-                            },
-                            2 => {
-                                self.screen.pixels[pixel_index] = 0;
-                                self.screen.pixels[pixel_index + 1] = 255;
-                                self.screen.pixels[pixel_index + 2] = 0;
-                            },
-                            3 => {
-                                self.screen.pixels[pixel_index] = 255;
-                                self.screen.pixels[pixel_index + 1] = 255;
-                                self.screen.pixels[pixel_index + 2] = 255;
-                            },
-                            _ => panic!("Unexpted Tile!"),
-                        }
+                        let color = PPU::SHADES[self.bg_palette[(high << 1 | low) as usize]];
+                        for i in 0..3 { self.screen.pixels[pixel_index + i] = color[i]; }
                     }
                 }
             } else if self.clock_num == self.hblank_clock {
