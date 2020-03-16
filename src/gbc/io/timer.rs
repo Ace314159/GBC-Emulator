@@ -1,4 +1,5 @@
 use super::MemoryHandler;
+use super::IO;
 
 pub struct Timer {
     // Registers
@@ -27,21 +28,21 @@ impl Timer {
 
     const CLOCK_SELECT: [usize; 4] = [9, 3, 5, 7];
 
-    pub fn emulate(&mut self) -> bool {
-        let mut interrupt_called = false;
+    pub fn emulate(&mut self) -> u8 {
+        let mut interrupt = 0;
         self.divider_counter = self.divider_counter.wrapping_add(4);
 
         let bit = Timer::CLOCK_SELECT[self.clock_select as usize];
         let counter_bit = self.enabled && self.divider_counter & (1 << bit) != 0;
         if self.prev_counter_bit && !counter_bit {
             self.counter = if self.counter == 0xFF {
-                interrupt_called = true;
+                interrupt = IO::TIMER_INT;
                 self.modulo
             } else { self.counter + 1 };
         }
         self.prev_counter_bit = counter_bit;
 
-        interrupt_called
+        interrupt
     }
 }
 

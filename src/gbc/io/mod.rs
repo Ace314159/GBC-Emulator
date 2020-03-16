@@ -78,9 +78,7 @@ impl IO {
     }
 
     pub fn emulate_machine_cycle(&mut self) {
-        if self.timer.emulate() {
-            self.int_flags |= IO::TIMER_INT;
-        }
+        self.int_flags |= self.timer.emulate();
         self.ppu.emulate();
     }
 
