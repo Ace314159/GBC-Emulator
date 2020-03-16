@@ -149,13 +149,14 @@ impl PPU {
                 self.hblank_clock = 248 + self.scroll_x % 8;
 
                 let map_offset: u16 = if self.bg_map_select { 0x9C00 } else { 0x9800 };
+                let y = self.y_coord.wrapping_add(self.scroll_y);
                 for map_num in 0..20 {
-                    let map_addr = map_offset + (self.y_coord as u16 / 8 * 32) + map_num;
+                    let map_addr = map_offset + (y as u16 / 8 * 32) + map_num;
                     let tile_num = self.vram[map_addr as usize - 0x8000];
                     let tile_addr = if self.bg_window_tiles_select {
                         0x8000 + ((tile_num as usize) << 4)
                     } else { 0x9000 + ((tile_num as i8 as usize) << 4) };
-                    let tile_addr = tile_addr + 2 * (self.y_coord as usize % 8);
+                    let tile_addr = tile_addr + 2 * (y as usize % 8);
 
                     let highs = self.vram[tile_addr - 0x8000];
                     let lows = self.vram[tile_addr + 1 - 0x8000];
