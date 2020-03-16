@@ -2,11 +2,15 @@ extern crate sdl2;
 extern crate gl;
 
 use sdl2::event::Event;
-use sdl2::video::GLProfile;
+use sdl2::video::{GLContext, Window, GLProfile, SwapInterval};
+
+use std::time::{SystemTime};
 pub struct Screen {
-    gl_ctx: sdl2::video::GLContext,
+    gl_ctx: GLContext,
     sdl_ctx: sdl2::Sdl,
-    window: sdl2::video::Window,
+    window: Window,
+    prev_time: SystemTime,
+    frames_passed: u32,
 
     screen_tex: u32,
     fbo: u32,
@@ -34,6 +38,7 @@ impl Screen {
 
         let gl_ctx = window.gl_create_context().unwrap();
         gl::load_with(|name| video_subsystem.gl_get_proc_address(name) as *const _);
+        video_subsystem.gl_set_swap_interval(SwapInterval::Immediate).unwrap();
 
         debug_assert_eq!(gl_attr.context_profile(), GLProfile::Core);
         debug_assert_eq!(gl_attr.context_version(), (3, 3));
@@ -63,6 +68,8 @@ impl Screen {
         Screen {
             gl_ctx,
             sdl_ctx,
+            prev_time: SystemTime::now(),
+            frames_passed: 0,
 
             screen_tex,
             fbo,
@@ -107,6 +114,16 @@ impl Screen {
                 },
                 _ => {}
             }
+        }
+
+        self.frames_passed += 1;
+        let cur_time = SystemTime::now();
+        let time_passed = cur_time.duration_since(self.prev_time).unwrap().as_secs();
+        if time_passed >= 1 {
+            let fps = self.frames_passed as f64 / time_passed as f64;
+            self.window.set_title(&format!("GBC Emulator - {} FPS", fps)).unwrap();
+            self.frames_passed = 0;
+            self.prev_time = cur_time;
         }
     }
 
