@@ -38,4 +38,8 @@ impl GBC {
     pub fn emulate(&mut self) {
         self.cpu.emulate(&mut self.io);
     }
+    
+    pub fn is_running(&self) -> bool {
+        !self.io.ppu.should_close()
+    }
 }

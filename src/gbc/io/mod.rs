@@ -19,7 +19,7 @@ pub trait MemoryHandler {
 
 pub struct IO {
     mbc: Box<dyn MemoryBankController>,
-    ppu: PPU,
+    pub ppu: PPU,
     wram: RAM,
     serial: Serial,
     timer: Timer,
@@ -81,6 +81,7 @@ impl IO {
         if self.timer.emulate() {
             self.int_flags |= IO::TIMER_INT;
         }
+        self.ppu.emulate();
     }
 
     pub fn swap_boot_rom(&mut self, boot_rom: &mut Vec<u8>) {

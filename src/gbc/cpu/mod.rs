@@ -51,7 +51,7 @@ impl CPU {
     }
 
     pub fn emulate_boot_rom(&mut self, io: &mut IO) {
-        while self.regs.pc < 0x100 {
+        while !io.ppu.should_close() && self.regs.pc < 0x100 {
             self.emulate_instr(io);
         }
     }

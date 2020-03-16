@@ -1,4 +1,7 @@
+mod screen;
+
 use super::MemoryHandler;
+use screen::Screen;
 
 pub struct PPU {
     // Registers
@@ -30,7 +33,9 @@ pub struct PPU {
     obj_palette1: u8,
     obj_palette2: u8,
     
-    vram: [u8; 0x2000]
+    // Rendering
+    vram: [u8; 0x2000],
+    screen: Screen,
 }
 
 impl MemoryHandler for PPU {
@@ -125,6 +130,15 @@ impl PPU {
             obj_palette2: 0,
 
             vram: [0; 0x2000],
+            screen: Screen::new(),
         }
+    }
+
+    pub fn emulate(&mut self) {
+        self.screen.render();
+    }
+
+    pub fn should_close(&self) -> bool {
+        self.screen.should_close()
     }
 }
