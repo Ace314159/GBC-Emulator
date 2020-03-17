@@ -90,6 +90,7 @@ impl MemoryHandler for PPU {
             0xFF43 => self.scroll_x = value,
             0xFF44 => {},
             0xFF45 => self.y_coord_comp = value,
+            0xFF46 => {},
             0xFF47 => for i in 0..4 { self.bg_palette[i] = (value as usize >> 2 * i) & 0x3; },
             0xFF48 => self.obj_palette1 = value,
             0xFF49 => self.obj_palette2 = value,
@@ -141,7 +142,7 @@ impl PPU {
         }
     }
 
-    const SHADES: [[u8; 3]; 4] = [[0xFF, 0xFF, 0xFF], [0xB2, 0xB2, 0xB2], [0x66, 0x66, 0x66], [0, 0, 0]];
+    const SHADES: [[u8; 3]; 4] = [[175, 203, 70], [121, 170, 109], [34, 111, 95], [8, 41, 85]];
 
     pub fn emulate(&mut self) -> u8 {
         let mut interrupt = 0;
