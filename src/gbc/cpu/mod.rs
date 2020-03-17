@@ -36,7 +36,7 @@ impl CPU {
     fn handle_interrupts(&mut self, io: &mut IO) {
         if !self.is_halted && !self.ime { return }
 
-        let interrupts = io.int_flags &  io.int_enable;
+        let interrupts = io.int_flags & io.int_enable;
 
         for i in 0..CPU::INTERRUPT_VECTORS.len() {
             let mask = 1 << i;
