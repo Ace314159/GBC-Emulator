@@ -19,7 +19,7 @@ pub struct Timer {
 impl Timer {
     pub fn new() -> Self {
         Timer {
-            divider_counter: 0,
+            divider_counter: 8,
             counter: 0,
             modulo: 0,
             enabled: false,

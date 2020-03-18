@@ -79,8 +79,10 @@ impl IO {
 
     pub fn emulate_machine_cycle(&mut self) {
         self.int_flags |= self.timer.emulate();
-        self.int_flags |= self.ppu.emulate();
-        self.int_flags |= self.ppu.emulate();
+        self.int_flags |= self.ppu.emulate_clock();
+        self.int_flags |= self.ppu.emulate_clock();
+        self.int_flags |= self.ppu.emulate_clock();
+        self.int_flags |= self.ppu.emulate_clock();
     }
 
     pub fn swap_boot_rom(&mut self, boot_rom: &mut Vec<u8>) {
