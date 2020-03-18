@@ -7,6 +7,12 @@ use super::Flag;
 impl CPU {
     pub fn emulate_instr(&mut self, io: &mut IO) {
         let opcode = self.read_next_byte(io);
+        if self.p {
+            println!("{:04X}:  {:02X}      A:{:02X} F:{:02X} B:{:02X} \
+            C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} Cy:{} LY:{}",
+            self.regs.pc - 1, opcode, self.regs.a, self.regs.f, self.regs.b, self.regs.c, self.regs.d,
+            self.regs.e, self.regs.h, self.regs.l, self.regs.sp, io.c - 1, io.read(0xFF44));
+        }
         self.decode_exec(io, opcode);
     }
 

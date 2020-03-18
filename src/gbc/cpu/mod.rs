@@ -11,6 +11,7 @@ pub struct CPU {
     regs: Registers,
     ime: bool,
     is_halted: bool,
+    p: bool,
 }
 
 impl CPU {
@@ -19,6 +20,7 @@ impl CPU {
             regs: Registers::new(),
             ime: false,
             is_halted: false,
+            p: false,
         }
     }
 

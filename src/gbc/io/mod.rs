@@ -27,6 +27,7 @@ pub struct IO {
     hram: RAM,
     pub int_flags: u8,
     unusable: Unusable,
+    pub c: u128,
 }
 
 impl IO {
@@ -42,6 +43,7 @@ impl IO {
             hram: RAM::new(0xFF80, 0xFFFE),
             int_flags: 0,
             unusable: Unusable {},
+            c: 8,
         }
     }
 
@@ -78,6 +80,7 @@ impl IO {
     }
 
     pub fn emulate_machine_cycle(&mut self) {
+        self.c += 4;
         self.int_flags |= self.timer.emulate();
         self.int_flags |= self.ppu.emulate_clock();
         self.int_flags |= self.ppu.emulate_clock();
