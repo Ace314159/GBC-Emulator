@@ -1,15 +1,21 @@
+extern crate sdl2;
+
 mod header;
 mod mbc;
 mod ppu;
 mod ram;
 mod serial;
+mod joypad;
 mod timer;
+
+use sdl2::event::Event;
 
 use header::Header;
 use mbc::MemoryBankController;
 use ppu::PPU;
 use ram::RAM;
 use serial::Serial;
+use joypad::Joypad;
 use timer::Timer;
 
 pub trait MemoryHandler {
@@ -18,32 +24,44 @@ pub trait MemoryHandler {
 }
 
 pub struct IO {
+    // IO Devices
     mbc: Box<dyn MemoryBankController>,
-    pub ppu: PPU,
+    ppu: PPU,
     wram: RAM,
     serial: Serial,
+    joypad: Joypad,
     timer: Timer,
     pub int_enable: u8,
     hram: RAM,
     pub int_flags: u8,
     unusable: Unusable,
+
+    // Other
+    pub sdl_ctx: sdl2::Sdl,
     pub c: u128,
+    pub should_close: bool,
 }
 
 impl IO {
     pub fn new(rom: Vec<u8>) -> Self {
         let header = Header::new(&rom);
+        let sdl_ctx = sdl2::init().unwrap();
+
         IO {
             mbc: mbc::get_mbc(header.get_cartridge_type(), rom),
-            ppu: PPU::new(),
+            ppu: PPU::new(&sdl_ctx),
             wram: RAM::new(0xC000, 0xDFFF),
             serial: Serial::new(),
+            joypad: Joypad::new(),
             timer: Timer::new(),
             int_enable: 0,
             hram: RAM::new(0xFF80, 0xFFFE),
             int_flags: 0,
             unusable: Unusable {},
+
+            sdl_ctx,
             c: 8,
+            should_close: false,
         }
     }
 
@@ -53,6 +71,7 @@ impl IO {
             0x8000 ..= 0x9FFF => self.ppu.read(addr),
             0xA000 ..= 0xBFFF => self.mbc.read(addr),
             0xC000 ..= 0xDFFF => self.wram.read(addr),
+            0xFF00 => self.joypad.read(addr),
             0xFF01 ..= 0xFF02 => self.serial.read(addr),
             0xFF04 ..= 0xFF07 => self.timer.read(addr),
             0xFF0F => self.int_flags,
@@ -69,6 +88,7 @@ impl IO {
             0x8000 ..= 0x9FFF => self.ppu.write(addr, value),
             0xA000 ..= 0xBFFF => self.mbc.write(addr, value),
             0xC000 ..= 0xDFFF => self.wram.write(addr, value),
+            0xFF00 => self.joypad.write(addr, value),
             0xFF01 ..= 0xFF02 => self.serial.write(addr, value),
             0xFF04 ..= 0xFF07 => self.timer.write(addr, value),
             0xFF0F => self.int_flags = value,
@@ -86,6 +106,21 @@ impl IO {
         self.int_flags |= self.ppu.emulate_clock();
         self.int_flags |= self.ppu.emulate_clock();
         self.int_flags |= self.ppu.emulate_clock();
+
+        if self.c % 10000 == 0 {
+            let mut keyboard_events: Vec<Event> = Vec::new();
+            for event in self.sdl_ctx.event_pump().unwrap().poll_iter() {
+                match event {
+                    Event::Quit {..} => {
+                        self.should_close = true;
+                    },
+                    Event::KeyDown {..} => { keyboard_events.push(event) },
+                    Event::KeyUp {..} => { keyboard_events.push(event) },
+                    _ => {},
+                }
+            }
+            self.int_flags |= self.joypad.update_inputs(&keyboard_events);
+        }
     }
 
     pub fn swap_boot_rom(&mut self, boot_rom: &mut Vec<u8>) {

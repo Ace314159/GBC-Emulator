@@ -40,6 +40,6 @@ impl GBC {
     }
     
     pub fn is_running(&self) -> bool {
-        !self.io.ppu.should_close()
+        !self.io.should_close
     }
 }

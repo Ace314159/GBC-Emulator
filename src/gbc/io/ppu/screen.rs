@@ -1,13 +1,10 @@
-extern crate sdl2;
 extern crate gl;
 
-use sdl2::event::Event;
 use sdl2::video::{GLContext, Window, GLProfile, SwapInterval};
 
 use std::time::{SystemTime};
 pub struct Screen {
     gl_ctx: GLContext,
-    sdl_ctx: sdl2::Sdl,
     window: Window,
     prev_time: SystemTime,
     frames_passed: u32,
@@ -15,8 +12,6 @@ pub struct Screen {
     screen_tex: u32,
     fbo: u32,
     pub pixels: [u8; 3 * Screen::WIDTH as usize * Screen::HEIGHT as usize],
-
-    should_close: bool,
 }
 
 impl Screen {
@@ -24,8 +19,7 @@ impl Screen {
     pub const HEIGHT: u32 = 144;
     const SCALE: u32 = 3;
 
-    pub fn new() -> Self {
-        let sdl_ctx = sdl2::init().unwrap();
+    pub fn new(sdl_ctx: &sdl2::Sdl) -> Self {
         let video_subsystem = sdl_ctx.video().unwrap();
         
         let gl_attr = video_subsystem.gl_attr();
@@ -67,7 +61,6 @@ impl Screen {
 
         Screen {
             gl_ctx,
-            sdl_ctx,
             prev_time: SystemTime::now(),
             frames_passed: 0,
 
@@ -75,8 +68,6 @@ impl Screen {
             fbo,
             window,
             pixels: [0; 3 * Screen::WIDTH as usize * Screen::HEIGHT as usize],
-
-            should_close: false,
         }
     }
 
@@ -105,16 +96,6 @@ impl Screen {
         }
         
         self.window.gl_swap_window();
-        let mut event_pump = self.sdl_ctx.event_pump().unwrap();
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit {..} => {
-                    self.should_close = true;
-                    break;
-                },
-                _ => {}
-            }
-        }
 
         self.frames_passed += 1;
         let cur_time = SystemTime::now();
@@ -125,10 +106,6 @@ impl Screen {
             self.frames_passed = 0;
             self.prev_time = cur_time;
         }
-    }
-
-    pub fn should_close(&self) -> bool {
-        self.should_close
     }
 }
 

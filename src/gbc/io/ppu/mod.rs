@@ -110,7 +110,7 @@ impl MemoryHandler for PPU {
 }
 
 impl PPU {
-    pub fn new() -> Self {
+    pub fn new(sdl_ctx: &sdl2::Sdl) -> Self {
         PPU {
             // Registers
             // Control
@@ -148,7 +148,7 @@ impl PPU {
             y_coord_inc: 1,
 
             vram: [0; 0x2000],
-            screen: Screen::new(),
+            screen: Screen::new(sdl_ctx),
         }
     }
 
@@ -238,9 +238,5 @@ impl PPU {
             self.lcd_was_off = false;
         }
         interrupt
-    }
-
-    pub fn should_close(&self) -> bool {
-        self.screen.should_close()
     }
 }
