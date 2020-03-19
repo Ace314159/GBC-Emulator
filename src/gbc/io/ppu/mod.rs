@@ -337,11 +337,23 @@ impl PPU {
                     let sprite_y: u8 = self.visible_sprites[self.current_sprite_i * 4];
                     let tile_num: u8 = self.visible_sprites[self.current_sprite_i * 4 + 2];
                     let attrs: u8 = self.visible_sprites[self.current_sprite_i * 4 + 3];
+                    let flip_y = attrs & 0x40 != 0;
+                    let flip_x = attrs & 0x20 != 0;
                     let tile_addr = (0x8000 | (tile_num as u16) << 4) as usize;
-                    let tile_addr = tile_addr + 2 * (15 - (sprite_y - self.y_coord - 1)) as usize;
+
+                    let tile_addr = if flip_y {
+                        tile_addr + 2 * (sprite_y - self.y_coord - 1 - 8) as usize
+                    } else {
+                        tile_addr + 2 * (15 - (sprite_y - self.y_coord - 1)) as usize
+                    };
+                    
                     let tile_highs: u8 = self.vram[tile_addr - 0x8000];
                     let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
-                    let tile_x: u8 = sprite_x - x - 1;
+                    let tile_x = if flip_x {
+                        7 - (sprite_x - x - 1)
+                    } else {
+                        sprite_x - x - 1
+                    };
                     let high = (tile_highs >> tile_x) & 0x1;
                     let low = (tile_lows >> tile_x) & 0x1;
 
