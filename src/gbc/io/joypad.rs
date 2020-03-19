@@ -85,7 +85,7 @@ impl MemoryHandler for Joypad {
 
     fn write(&mut self, addr: u16, value: u8) {
         assert_eq!(addr, 0xFF00);
-        self.select_buttons = value & 0x20 != 0;
-        self.select_dirs = value & 0x10 != 0;
+        self.select_buttons = value & 0x20 == 0;
+        self.select_dirs = value & 0x10 == 0;
     }
 }
