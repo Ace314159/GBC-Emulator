@@ -88,7 +88,7 @@ impl Screen {
 
         unsafe {
             gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, Screen::WIDTH as i32, Screen::HEIGHT as i32,
-                gl::RGB, gl::UNSIGNED_BYTE, &self.pixels as *const _ as *const std::ffi::c_void);
+                gl::RGB, gl::UNSIGNED_BYTE, self.pixels.as_ptr() as *const std::ffi::c_void);
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo);
             gl::BlitFramebuffer(0, 0, Screen::WIDTH as i32, Screen::HEIGHT as i32,
                 tex_x, tex_y, width - tex_x, height - tex_y, gl::COLOR_BUFFER_BIT, gl::NEAREST);

@@ -376,4 +376,30 @@ impl PPU {
             }
         }
     }
+
+    fn render_map(&mut self) {
+        let bg_map_offset: u16 = if self.bg_map_select { 0x9C00 } else { 0x9800 };
+        for y in 0u16..32u16 * 8 {
+            for x in 0u16..32u16 * 8 {
+                let map_x = x / 8;
+                let bg_map_addr = bg_map_offset + (y / 8 * 32) + map_x as u16;
+                let tile_num = self.vram[bg_map_addr as usize - 0x8000];
+                let tile_addr = if self.bg_window_tiles_select {
+                    0x8000 + ((tile_num as usize) << 4)
+                } else { (0x900u16.wrapping_add(tile_num as i8 as u16) << 4) as usize};
+                let tile_addr = tile_addr + 2 * (y as usize % 8);
+                let tile_highs: u8 = self.vram[tile_addr - 0x8000];
+                let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
+                let tile_x: u8 = x as u8 % 8;
+                let high = (tile_highs >> (7 - tile_x)) & 0x1;
+                let low = (tile_lows >> (7 - tile_x)) & 0x1;
+                let bg_color = (high << 1 | low) as usize;
+
+                let pixel_index = 3 * ((Screen::HEIGHT - 1 - y as u32) * Screen::WIDTH + x as u32) as usize;
+                for i in 0..3 {
+                    self.screen.pixels[pixel_index + i] = PPU::SHADES[self.bg_palette[bg_color]][i];
+                }
+            }
+        }
+    }
 }
