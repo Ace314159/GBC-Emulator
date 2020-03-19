@@ -33,20 +33,31 @@ pub struct PPU {
     bg_palette: [usize; 4],
     obj_palette1: u8,
     obj_palette2: u8,
+    // OAM DMA
+    pub oam_dma_page: u8,
     
     // Rendering
+    // BG
     clock_num: u16,
     hblank_clock: u16,
     prev_stat_signal: bool,
     lcd_was_off: bool,
     y_coord_inc: u8,
+    // Sprites
+    pub in_oam_dma: bool,
+    pub oam_dma_clock: u16,
+    visible_sprites: [u8; 4 * 20], // Stores x, tile num, and attributes
+    visible_sprite_count: usize,
+    current_sprite_i: usize,
 
+    // STAT
     coincidence_int: bool,
     oam_int: bool,
     vblank_int: bool,
     hblank_int: bool,
 
     vram: [u8; 0x2000],
+    pub oam: [u8; 0xA0],
     screen: Screen,
 }
 
@@ -56,6 +67,7 @@ impl MemoryHandler for PPU {
 
         match addr {
             0x8000 ..= 0x9FFF => if self.mode != 3 { self.vram[addr as usize - 0x8000] } else { 0xFF },
+            0xFE00 ..= 0xFE9F => if self.mode < 2 { self.oam[addr as usize - 0xFE00] } else { 0xFF },
             0xFF40 => shift!(lcd_enable, 7) | shift!(window_map_select, 6) | shift!(window_enable, 5) |
                       shift!(bg_window_tiles_select, 4) | shift!(bg_map_select, 3) | shift!(obj_size, 2) |
                       shift!(obj_enable, 1) | shift!(bg_priority, 0),
@@ -65,9 +77,16 @@ impl MemoryHandler for PPU {
             0xFF43 => self.scroll_x,
             0xFF44 => self.y_coord,
             0xFF45 => self.y_coord_comp,
-            0xFF47 => self.bg_palette.iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 ),
-            0xFF48 => self.obj_palette1,
-            0xFF49 => self.obj_palette2,
+            0xFF46 => self.oam_dma_page,
+            0xFF47 => if self.mode != 3 {
+                self.bg_palette.iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 )
+            } else { 0xFF},
+            0xFF48 => if self.mode != 3 {
+                self.obj_palette1
+            } else { 0xFF},
+            0xFF49 => if self.mode != 3 {
+                self.obj_palette2
+            } else { 0xFF},
             0xFF4A => self.window_y,
             0xFF4B => self.window_x,
             _ => panic!("Unexpected Address for PPU!"),
@@ -76,7 +95,8 @@ impl MemoryHandler for PPU {
 
     fn write(&mut self, addr: u16, value: u8) {
         match addr {
-            0x8000 ..= 0x9FFF => if true || self.mode != 3 { self.vram[addr as usize - 0x8000] = value },
+            0x8000 ..= 0x9FFF => if self.mode != 3 { self.vram[addr as usize - 0x8000] = value },
+            0xFE00 ..= 0xFE9F => if self.mode < 2 { self.oam[addr as usize - 0xFE00] = value },
             0xFF40 => {
                 let old_lcd_enable = self.lcd_enable;
                 self.lcd_enable = value & (1 << 7) != 0;
@@ -114,10 +134,10 @@ impl MemoryHandler for PPU {
                     }
                 }
             },
-            0xFF46 => {},
-            0xFF47 => for i in 0..4 { self.bg_palette[i] = (value as usize >> 2 * i) & 0x3; },
-            0xFF48 => self.obj_palette1 = value,
-            0xFF49 => self.obj_palette2 = value,
+            0xFF46 => { self.oam_dma_page = value; self.in_oam_dma = true; self.oam_dma_clock = 0; },
+            0xFF47 => if self.mode != 3 { for i in 0..4 { self.bg_palette[i] = (value as usize >> 2 * i) & 0x3; } },
+            0xFF48 => if self.mode != 3 { self.obj_palette1 = value },
+            0xFF49 => if self.mode != 3 { self.obj_palette2 = value },
             0xFF4A => self.window_y = value,
             0xFF4B => self.window_x = value,
             _ => panic!("Unexpected Address for PPU!"),
@@ -156,19 +176,31 @@ impl PPU {
             bg_palette: [0, 1, 2, 3],
             obj_palette1: 0,
             obj_palette2: 0,
+            // OAM DMA
+            oam_dma_page: 0,
 
+            // Rendering
+            // BG
             clock_num: 0,
             hblank_clock: 0,
             prev_stat_signal: false,
             lcd_was_off: false,
             y_coord_inc: 1,
+            // Sprites
+            in_oam_dma: false,
+            oam_dma_clock: 0,
+            visible_sprites: [0; 4 * 20],
+            visible_sprite_count: 0,
+            current_sprite_i: 0,
 
+            // STAT
             coincidence_int: false,
             oam_int: false,
             vblank_int: false,
             hblank_int: false,
 
             vram: [0; 0x2000],
+            oam: [0; 0xA0],
             screen: Screen::new(sdl_ctx),
         }
     }
@@ -201,7 +233,7 @@ impl PPU {
 
     fn render_clock(&mut self) -> u8 {
         let mut interrupt = 0;
-        if self.y_coord < 144 {
+        if self.y_coord < 144 && self.y_coord_inc != 0 {
             if self.lcd_was_off { // Special timing for first scanline when LCD is just turned on
                 if self.clock_num == 84 {
                     self.mode = 3;
@@ -209,8 +241,8 @@ impl PPU {
                     self.mode = 0;
                 }
             } else {
-                if self.clock_num < 80 { // OAM Search
-                    // TODO: Do OAM Search
+                if self.clock_num < 80 { // OAM Scan
+                    if self.clock_num == 0 { self.oam_scan() };
                     if self.clock_num == 0 && self.y_coord != 0 {
                         self.coincidence_flag = false;
                     }
@@ -255,27 +287,94 @@ impl PPU {
         interrupt
     }
 
+    fn oam_scan(&mut self) {
+        self.visible_sprite_count = 0;
+        let mut oam_addr = 0usize;
+        let sprite_height = if self.obj_size { 16 } else { 8 };
+        let mut visible_sprite_xs: Vec<[usize; 2]> = Vec::new();
+        while self.visible_sprite_count < 10 && oam_addr < self.oam.len() {
+            let y = self.oam[oam_addr];
+            if self.y_coord + 16 >= y && self.y_coord + 16 - sprite_height < y {
+                visible_sprite_xs.push([self.oam[oam_addr + 1] as usize, oam_addr]);
+                self.visible_sprite_count += 1;
+            }
+            oam_addr += 4;
+        }
+        
+        // Sort visible sprites for easy processing
+        visible_sprite_xs.sort_by_key(|x| x[0]);
+        for (i, oam_i) in visible_sprite_xs.iter().enumerate() {
+            for j in 0..4 {
+                self.visible_sprites[i * 4 + j] = self.oam[oam_i[1] + j];
+            }
+        }
+    }
+
     fn render_line(&mut self) {
         self.hblank_clock = 247 + self.scroll_x as u16 % 8;
         let bg_map_offset: u16 = if self.bg_map_select { 0x9C00 } else { 0x9800 };
         let y = self.y_coord.wrapping_add(self.scroll_y) as u16;
-        for x in 0..160 {
-            let map_x = (x + self.scroll_x as u16) / 8 % 32;
-            let bg_map_addr = bg_map_offset + (y / 8 * 32) + map_x;
+        self.current_sprite_i = 0;
+        for x in 0u8..160u8 {
+            // BG
+            let map_x = x.wrapping_add(self.scroll_x) / 8u8 % 32;
+            let bg_map_addr = bg_map_offset + (y / 8 * 32) + map_x as u16;
             let tile_num = self.vram[bg_map_addr as usize - 0x8000];
             let tile_addr = if self.bg_window_tiles_select {
                 0x8000 + ((tile_num as usize) << 4)
             } else { 0x9000u16.wrapping_add((tile_num as i8 as u16) << 4) as usize };
             let tile_addr = tile_addr + 2 * (y as usize % 8);
-            let tile_highs = self.vram[tile_addr - 0x8000];
-            let tile_lows = self.vram[tile_addr + 1 - 0x8000];
-            let tile_x = (x + self.scroll_x as u16) % 8;
+            let tile_highs: u8 = self.vram[tile_addr - 0x8000];
+            let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
+            let tile_x: u8 = x.wrapping_add(self.scroll_x) % 8;
             let high = (tile_highs >> (7 - tile_x)) & 0x1;
             let low = (tile_lows >> (7 - tile_x)) & 0x1;
+            let mut bg_color = PPU::SHADES[self.bg_palette[(high << 1 | low) as usize]];
+
+            // Sprite
+            if self.current_sprite_i < self.visible_sprite_count {
+                let sprite_x: u8 = self.visible_sprites[self.current_sprite_i * 4 + 1];
+                if x + 8 >= sprite_x && x < sprite_x {
+                    let sprite_y: u8 = self.visible_sprites[self.current_sprite_i * 4];
+                    let tile_num: u8 = self.visible_sprites[self.current_sprite_i * 4 + 2];
+                    let attrs: u8 = self.visible_sprites[self.current_sprite_i * 4 + 3];
+                    let tile_addr = (0x8000 | (tile_num as u16) << 4) as usize;
+                    let tile_addr = tile_addr + 2 * (15 - (sprite_y - self.y_coord - 1)) as usize;
+                    let tile_highs: u8 = self.vram[tile_addr - 0x8000];
+                    let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
+                    let tile_x: u8 = sprite_x - x - 1;
+                    let high = (tile_highs >> tile_x) & 0x1;
+                    let low = (tile_lows >> tile_x) & 0x1;
+                    let color = high << 1 | low;
+                    match color {
+                        0 => {
+                            bg_color[0] = 255;
+                            bg_color[1] = 255;
+                            bg_color[2] = 255;
+                        },
+                        1 => {
+                            bg_color[0] = 255;
+                            bg_color[1] = 0;
+                            bg_color[2] = 0;
+                        },
+                        2 => {
+                            bg_color[0] = 0;
+                            bg_color[1] = 0;
+                            bg_color[2] = 0;
+                        },
+                        3 => {
+                            bg_color[0] = 0;
+                            bg_color[1] = 255;
+                            bg_color[2] = 0;
+                        },
+                        _ => {},
+                    }
+                }
+                if x + 1 == sprite_x { self.current_sprite_i += 1 }
+            }
 
             let pixel_index = 3 * ((Screen::HEIGHT - 1 - self.y_coord as u32) * Screen::WIDTH + x as u32) as usize;
-            let color = PPU::SHADES[self.bg_palette[(high << 1 | low) as usize]];
-            for i in 0..3 { self.screen.pixels[pixel_index + i] = color[i]; }
+            for i in 0..3 { self.screen.pixels[pixel_index + i] = bg_color[i]; }
         }
     }
 }

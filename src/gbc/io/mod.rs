@@ -71,6 +71,7 @@ impl IO {
             0x8000 ..= 0x9FFF => self.ppu.read(addr),
             0xA000 ..= 0xBFFF => self.mbc.read(addr),
             0xC000 ..= 0xDFFF => self.wram.read(addr),
+            0xFE00 ..= 0xFE9F => self.ppu.read(addr),
             0xFF00 => self.joypad.read(addr),
             0xFF01 ..= 0xFF02 => self.serial.read(addr),
             0xFF04 ..= 0xFF07 => self.timer.read(addr),
@@ -88,6 +89,7 @@ impl IO {
             0x8000 ..= 0x9FFF => self.ppu.write(addr, value),
             0xA000 ..= 0xBFFF => self.mbc.write(addr, value),
             0xC000 ..= 0xDFFF => self.wram.write(addr, value),
+            0xFE00 ..= 0xFE9F => self.ppu.write(addr, value),
             0xFF00 => self.joypad.write(addr, value),
             0xFF01 ..= 0xFF02 => self.serial.write(addr, value),
             0xFF04 ..= 0xFF07 => self.timer.write(addr, value),
@@ -102,6 +104,7 @@ impl IO {
     pub fn emulate_machine_cycle(&mut self) {
         self.c += 4;
         self.int_flags |= self.timer.emulate();
+        self.oam_dma();
         self.int_flags |= self.ppu.emulate_clock();
         self.int_flags |= self.ppu.emulate_clock();
         self.int_flags |= self.ppu.emulate_clock();
@@ -129,6 +132,17 @@ impl IO {
         unsafe {
             let x = boot_rom[..boot_rom_len].as_mut_ptr() as *mut [u8; 0x100];
             std::ptr::swap(x, self.mbc.get_boot_rom_ptr());
+        }
+    }
+
+    fn oam_dma(&mut self) {
+        if !self.ppu.in_oam_dma { return }
+        let cpu_addr = (self.ppu.oam_dma_page as u16) << 8 | self.ppu.oam_dma_clock;
+        self.ppu.oam[self.ppu.oam_dma_clock as usize] = self.read(cpu_addr);
+
+        self.ppu.oam_dma_clock += 1;
+        if self.ppu.oam_dma_clock == 160 {
+            self.ppu.in_oam_dma = false;
         }
     }
 
