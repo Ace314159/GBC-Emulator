@@ -31,8 +31,7 @@ pub struct PPU {
     window_x: u8,
     // Palettes
     bg_palette: [usize; 4],
-    obj_palette1: u8,
-    obj_palette2: u8,
+    obj_palettes: [[usize; 4]; 2],
     // OAM DMA
     pub oam_dma_page: u8,
     
@@ -82,10 +81,10 @@ impl MemoryHandler for PPU {
                 self.bg_palette.iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 )
             } else { 0xFF},
             0xFF48 => if self.mode != 3 {
-                self.obj_palette1
+                self.obj_palettes[0].iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 )
             } else { 0xFF},
             0xFF49 => if self.mode != 3 {
-                self.obj_palette2
+                self.obj_palettes[1].iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 )
             } else { 0xFF},
             0xFF4A => self.window_y,
             0xFF4B => self.window_x,
@@ -136,8 +135,8 @@ impl MemoryHandler for PPU {
             },
             0xFF46 => { self.oam_dma_page = value; self.in_oam_dma = true; self.oam_dma_clock = 0; },
             0xFF47 => if self.mode != 3 { for i in 0..4 { self.bg_palette[i] = (value as usize >> 2 * i) & 0x3; } },
-            0xFF48 => if self.mode != 3 { self.obj_palette1 = value },
-            0xFF49 => if self.mode != 3 { self.obj_palette2 = value },
+            0xFF48 => if self.mode != 3 { for i in 0..4 { self.obj_palettes[0][i] = (value as usize >> 2 * i) & 0x3; } },
+            0xFF49 => if self.mode != 3 { for i in 0..4 { self.obj_palettes[1][i] = (value as usize >> 2 * i) & 0x3; } },
             0xFF4A => self.window_y = value,
             0xFF4B => self.window_x = value,
             _ => panic!("Unexpected Address for PPU!"),
@@ -174,8 +173,7 @@ impl PPU {
             window_x: 0,
             // Palettes
             bg_palette: [0, 1, 2, 3],
-            obj_palette1: 0,
-            obj_palette2: 0,
+            obj_palettes: [[0, 1, 2, 3], [0, 1, 2, 3]],
             // OAM DMA
             oam_dma_page: 0,
 
@@ -289,6 +287,7 @@ impl PPU {
 
     fn oam_scan(&mut self) {
         self.visible_sprite_count = 0;
+        if !self.obj_enable { return }
         let mut oam_addr = 0usize;
         let sprite_height = if self.obj_size { 16 } else { 8 };
         let mut visible_sprite_xs: Vec<[usize; 2]> = Vec::new();
@@ -329,12 +328,12 @@ impl PPU {
             let tile_x: u8 = x.wrapping_add(self.scroll_x) % 8;
             let high = (tile_highs >> (7 - tile_x)) & 0x1;
             let low = (tile_lows >> (7 - tile_x)) & 0x1;
-            let mut bg_color = PPU::SHADES[self.bg_palette[(high << 1 | low) as usize]];
+            let bg_color = (high << 1 | low) as usize;
 
             // Sprite
-            if self.current_sprite_i < self.visible_sprite_count {
+            let obj_shade = if self.current_sprite_i < self.visible_sprite_count {
                 let sprite_x: u8 = self.visible_sprites[self.current_sprite_i * 4 + 1];
-                if x + 8 >= sprite_x && x < sprite_x {
+                let obj_shade = if x + 8 >= sprite_x && x < sprite_x {
                     let sprite_y: u8 = self.visible_sprites[self.current_sprite_i * 4];
                     let tile_num: u8 = self.visible_sprites[self.current_sprite_i * 4 + 2];
                     let attrs: u8 = self.visible_sprites[self.current_sprite_i * 4 + 3];
@@ -345,36 +344,24 @@ impl PPU {
                     let tile_x: u8 = sprite_x - x - 1;
                     let high = (tile_highs >> tile_x) & 0x1;
                     let low = (tile_lows >> tile_x) & 0x1;
-                    let color = high << 1 | low;
-                    match color {
-                        0 => {
-                            bg_color[0] = 255;
-                            bg_color[1] = 255;
-                            bg_color[2] = 255;
-                        },
-                        1 => {
-                            bg_color[0] = 255;
-                            bg_color[1] = 0;
-                            bg_color[2] = 0;
-                        },
-                        2 => {
-                            bg_color[0] = 0;
-                            bg_color[1] = 0;
-                            bg_color[2] = 0;
-                        },
-                        3 => {
-                            bg_color[0] = 0;
-                            bg_color[1] = 255;
-                            bg_color[2] = 0;
-                        },
-                        _ => {},
-                    }
-                }
+
+                    let obj_priority = attrs & 0x80 != 0;
+                    let palette_num = (attrs & 0x10 != 0) as usize;
+                    let obj_shade = self.obj_palettes[palette_num][(high << 1 | low) as usize];
+                    if obj_priority && bg_color > 0 { 0 } else { obj_shade }
+                } else { 0 };
                 if x + 1 == sprite_x { self.current_sprite_i += 1 }
-            }
+                obj_shade
+            } else { 0 };
 
             let pixel_index = 3 * ((Screen::HEIGHT - 1 - self.y_coord as u32) * Screen::WIDTH + x as u32) as usize;
-            for i in 0..3 { self.screen.pixels[pixel_index + i] = bg_color[i]; }
+            for i in 0..3 {
+                self.screen.pixels[pixel_index + i] = if obj_shade != 0 {
+                    PPU::SHADES[obj_shade][i]
+                } else {
+                    PPU::SHADES[self.bg_palette[bg_color]][i]
+                };
+            }
         }
     }
 }
