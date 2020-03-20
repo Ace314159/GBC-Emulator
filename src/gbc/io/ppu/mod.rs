@@ -331,40 +331,44 @@ impl PPU {
             let bg_color = (high << 1 | low) as usize;
 
             // Sprite
-            let obj_shade = if self.current_sprite_i < self.visible_sprite_count {
-                let sprite_x: u8 = self.visible_sprites[self.current_sprite_i * 4 + 1];
-                let obj_shade = if x + 8 >= sprite_x && x < sprite_x {
-                    let sprite_y: u8 = self.visible_sprites[self.current_sprite_i * 4];
-                    let tile_num: u8 = self.visible_sprites[self.current_sprite_i * 4 + 2];
-                    let attrs: u8 = self.visible_sprites[self.current_sprite_i * 4 + 3];
-                    let flip_y = attrs & 0x40 != 0;
-                    let flip_x = attrs & 0x20 != 0;
-                    let tile_addr = (0x8000 | (tile_num as u16) << 4) as usize;
-
-                    let tile_addr = if flip_y {
-                        tile_addr + 2 * (sprite_y - self.y_coord - 1 - 8) as usize
-                    } else {
-                        tile_addr + 2 * (15 - (sprite_y - self.y_coord - 1)) as usize
-                    };
-                    
-                    let tile_highs: u8 = self.vram[tile_addr - 0x8000];
-                    let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
-                    let tile_x = if flip_x {
-                        7 - (sprite_x - x - 1)
-                    } else {
-                        sprite_x - x - 1
-                    };
-                    let high = (tile_highs >> tile_x) & 0x1;
-                    let low = (tile_lows >> tile_x) & 0x1;
-
-                    let obj_priority = attrs & 0x80 != 0;
-                    let palette_num = (attrs & 0x10 != 0) as usize;
-                    let obj_shade = self.obj_palettes[palette_num][(high << 1 | low) as usize];
-                    if obj_priority && bg_color > 0 { 0 } else { obj_shade }
-                } else { 0 };
-                if x + 1 == sprite_x { self.current_sprite_i += 1 }
-                obj_shade
-            } else { 0 };
+            let mut obj_shade = 0;
+            let mut i = self.current_sprite_i;
+            while i < self.visible_sprite_count && obj_shade == 0 {
+                let sprite_x: u8 = self.visible_sprites[i * 4 + 1];
+                if x + 8 >= sprite_x {
+                    if x < sprite_x {
+                        let sprite_y: u8 = self.visible_sprites[i * 4];
+                        let tile_num: u8 = self.visible_sprites[i * 4 + 2];
+                        let attrs: u8 = self.visible_sprites[i * 4 + 3];
+                        let flip_y = attrs & 0x40 != 0;
+                        let flip_x = attrs & 0x20 != 0;
+                        let tile_addr = (0x8000 | (tile_num as u16) << 4) as usize;
+    
+                        let tile_addr = if flip_y {
+                            tile_addr + 2 * (sprite_y - self.y_coord - 1 - 8) as usize
+                        } else {
+                            tile_addr + 2 * (15 - (sprite_y - self.y_coord - 1)) as usize
+                        };
+                        
+                        let tile_highs: u8 = self.vram[tile_addr - 0x8000];
+                        let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
+                        let tile_x = if flip_x {
+                            7 - (sprite_x - x - 1)
+                        } else {
+                            sprite_x - x - 1
+                        };
+                        let high = (tile_highs >> tile_x) & 0x1;
+                        let low = (tile_lows >> tile_x) & 0x1;
+    
+                        let obj_priority = attrs & 0x80 != 0;
+                        let palette_num = (attrs & 0x10 != 0) as usize;
+                        let shade = self.obj_palettes[palette_num][(high << 1 | low) as usize];
+                        if !obj_priority || bg_color == 0 { obj_shade = shade; }
+                    }
+                    if x + 1 == sprite_x { self.current_sprite_i += 1 }
+                    i += 1;
+                } else { break }
+            }
 
             let pixel_index = 3 * ((Screen::HEIGHT - 1 - self.y_coord as u32) * Screen::WIDTH + x as u32) as usize;
             for i in 0..3 {
