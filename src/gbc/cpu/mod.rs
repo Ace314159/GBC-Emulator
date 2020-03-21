@@ -40,15 +40,20 @@ impl CPU {
     fn handle_interrupts(&mut self, io: &mut IO) {
         if !self.is_halted && !self.prev_ime { self.prev_ime = self.ime; return }
 
-        let interrupts = io.int_flags & io.int_enable;
+        let mut interrupts = io.int_flags & io.int_enable;
 
+        let cached_prev_ime = self.prev_ime; // For the Special Case
         for i in 0..CPU::INTERRUPT_VECTORS.len() {
             let mask = 1 << i;
             if interrupts & mask != 0 {
                 self.is_halted = false;
-                if self.prev_ime {
+                if cached_prev_ime {
                     self.handle_interrupt(io, CPU::INTERRUPT_VECTORS[i]);
-                    io.int_flags &= !mask;
+                    interrupts = io.int_flags & io.int_enable;
+                    if self.regs.sp == 0xFFFE && interrupts & mask == 0 {
+                        // Special Case when IE is written during upper byte push
+                        self.regs.pc = 0;
+                    } else { io.int_flags &= !mask; }
                 }
             }
         }
