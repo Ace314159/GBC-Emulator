@@ -139,12 +139,15 @@ impl IO {
 
     fn oam_dma(&mut self) {
         if !self.ppu.in_oam_dma { return }
-        let cpu_addr = (self.ppu.oam_dma_page as u16) << 8 | self.ppu.oam_dma_clock;
-        self.ppu.oam[self.ppu.oam_dma_clock as usize] = self.read(cpu_addr);
+        if self.ppu.oam_dma_clock >= 2 {
+            let cpu_addr = (self.ppu.oam_dma_page as u16) << 8 | (self.ppu.oam_dma_clock - 2);
+            self.ppu.oam[(self.ppu.oam_dma_clock - 2) as usize] = self.read(cpu_addr);
+        }
 
         self.ppu.oam_dma_clock += 1;
-        if self.ppu.oam_dma_clock == 160 {
+        if self.ppu.oam_dma_clock == 160 + 2 {
             self.ppu.in_oam_dma = false;
+            self.ppu.oam_dma_clock = 0;
         }
     }
 

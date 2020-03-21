@@ -66,7 +66,7 @@ impl MemoryHandler for PPU {
 
         match addr {
             0x8000 ..= 0x9FFF => if self.mode != 3 { self.vram[addr as usize - 0x8000] } else { 0xFF },
-            0xFE00 ..= 0xFE9F => if self.mode < 2 { self.oam[addr as usize - 0xFE00] } else { 0xFF },
+            0xFE00 ..= 0xFE9F => if self.mode < 2 && self.oam_dma_clock < 2 { self.oam[addr as usize - 0xFE00] } else { 0xFF },
             0xFF40 => shift!(lcd_enable, 7) | shift!(window_map_select, 6) | shift!(window_enable, 5) |
                       shift!(bg_window_tiles_select, 4) | shift!(bg_map_select, 3) | shift!(obj_size, 2) |
                       shift!(obj_enable, 1) | shift!(bg_priority, 0),
@@ -95,7 +95,7 @@ impl MemoryHandler for PPU {
     fn write(&mut self, addr: u16, value: u8) {
         match addr {
             0x8000 ..= 0x9FFF => if self.mode != 3 { self.vram[addr as usize - 0x8000] = value },
-            0xFE00 ..= 0xFE9F => if self.mode < 2 { self.oam[addr as usize - 0xFE00] = value },
+            0xFE00 ..= 0xFE9F => if self.mode < 2 && self.oam_dma_clock < 2 { self.oam[addr as usize - 0xFE00] = value },
             0xFF40 => {
                 let old_lcd_enable = self.lcd_enable;
                 self.lcd_enable = value & (1 << 7) != 0;
