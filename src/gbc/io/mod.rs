@@ -95,7 +95,7 @@ impl IO {
             0xFF00 => self.joypad.write(addr, value),
             0xFF01 ..= 0xFF02 => self.serial.write(addr, value),
             0xFF04 ..= 0xFF07 => self.timer.write(addr, value),
-            0xFF0F => self.int_flags = value,
+            0xFF0F => self.int_flags = value | 0xE0,
             0xFF40 ..= 0xFF4A => self.ppu.write(addr, value),
             0xFF80 ..= 0xFFFE => self.hram.write(addr, value),
             0xFFFF => self.int_enable = value,
