@@ -71,6 +71,7 @@ impl IO {
             0x8000 ..= 0x9FFF => self.ppu.read(addr),
             0xA000 ..= 0xBFFF => self.mbc.read(addr),
             0xC000 ..= 0xDFFF => self.wram.read(addr),
+            0xE000 ..= 0xFDFF => self.wram.read(addr & 0xDFFF),
             0xFE00 ..= 0xFE9F => self.ppu.read(addr),
             0xFF00 => self.joypad.read(addr),
             0xFF01 ..= 0xFF02 => self.serial.read(addr),
@@ -89,6 +90,7 @@ impl IO {
             0x8000 ..= 0x9FFF => self.ppu.write(addr, value),
             0xA000 ..= 0xBFFF => self.mbc.write(addr, value),
             0xC000 ..= 0xDFFF => self.wram.write(addr, value),
+            0xE000 ..= 0xFDFF => self.wram.write(addr & 0xDFFF, value),
             0xFE00 ..= 0xFE9F => self.ppu.write(addr, value),
             0xFF00 => self.joypad.write(addr, value),
             0xFF01 ..= 0xFF02 => self.serial.write(addr, value),
@@ -155,6 +157,6 @@ impl IO {
 
 struct Unusable;
 impl MemoryHandler for Unusable {
-    fn read(&self, addr: u16) -> u8 { 0 }
+    fn read(&self, addr: u16) -> u8 { 0xFF }
     fn write(&mut self, addr: u16, value: u8) { }
 }
