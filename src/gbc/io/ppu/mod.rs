@@ -248,6 +248,7 @@ impl PPU {
                     }
                     if self.clock_num == 4 {
                         self.mode = 2;
+                        if self.enable_oam_int { self.oam_int = true; }
                     }
                 } else if self.clock_num >= 83 { // Pixel Transfer + HBlank
                     if self.clock_num == 84 {
