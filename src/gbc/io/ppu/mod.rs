@@ -45,6 +45,7 @@ pub struct PPU {
     // Sprites
     pub in_oam_dma: bool,
     pub oam_dma_clock: u16,
+    pub disable_oam: bool,
     visible_sprites: [u8; 4 * 20], // Stores x, tile num, and attributes
     visible_sprite_count: usize,
     current_sprite_i: usize,
@@ -95,7 +96,7 @@ impl MemoryHandler for PPU {
     fn write(&mut self, addr: u16, value: u8) {
         match addr {
             0x8000 ..= 0x9FFF => if self.mode != 3 { self.vram[addr as usize - 0x8000] = value },
-            0xFE00 ..= 0xFE9F => if self.mode < 2 && self.oam_dma_clock < 2 { self.oam[addr as usize - 0xFE00] = value },
+            0xFE00 ..= 0xFE9F => if self.mode < 2 && !self.disable_oam { self.oam[addr as usize - 0xFE00] = value },
             0xFF40 => {
                 let old_lcd_enable = self.lcd_enable;
                 self.lcd_enable = value & (1 << 7) != 0;
@@ -187,6 +188,7 @@ impl PPU {
             // Sprites
             in_oam_dma: false,
             oam_dma_clock: 0,
+            disable_oam: false,
             visible_sprites: [0; 4 * 20],
             visible_sprite_count: 0,
             current_sprite_i: 0,
