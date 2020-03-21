@@ -4,12 +4,12 @@ use sdl2::video::{GLContext, Window, GLProfile, SwapInterval};
 
 use std::time::{SystemTime};
 pub struct Screen {
-    gl_ctx: GLContext,
+    _gl_ctx: GLContext,
     window: Window,
     prev_time: SystemTime,
     frames_passed: u32,
 
-    screen_tex: u32,
+    _screen_tex: u32,
     fbo: u32,
     pub pixels: [u8; 3 * Screen::WIDTH as usize * Screen::HEIGHT as usize],
 }
@@ -60,11 +60,11 @@ impl Screen {
         }
 
         Screen {
-            gl_ctx,
+            _gl_ctx: gl_ctx,
             prev_time: SystemTime::now(),
             frames_passed: 0,
 
-            screen_tex,
+            _screen_tex: screen_tex,
             fbo,
             window,
             pixels: [0; 3 * Screen::WIDTH as usize * Screen::HEIGHT as usize],

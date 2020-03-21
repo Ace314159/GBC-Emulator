@@ -154,12 +154,12 @@ impl IO {
     pub const VBLANK_INT: u8 = 1;
     pub const STAT_INT: u8 = 1 << 1;
     pub const TIMER_INT: u8 = 1 << 2;
-    pub const SERIAL_INT: u8 = 1 << 3;
+    pub const _SERIAL_INT: u8 = 1 << 3;
     pub const JOYPAD_INT: u8 = 1 << 4;
 }
 
 struct Unusable;
 impl MemoryHandler for Unusable {
-    fn read(&self, addr: u16) -> u8 { 0xFF }
-    fn write(&mut self, addr: u16, value: u8) { }
+    fn read(&self, _addr: u16) -> u8 { 0xFF }
+    fn write(&mut self, _addr: u16, _value: u8) { }
 }

@@ -381,7 +381,7 @@ impl PPU {
         }
     }
 
-    fn render_map(&mut self) {
+    fn _render_map(&mut self) {
         let bg_map_offset: u16 = if self.bg_map_select { 0x9C00 } else { 0x9800 };
         for y in 0u16..32u16 * 8 {
             for x in 0u16..32u16 * 8 {

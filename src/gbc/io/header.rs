@@ -2,12 +2,12 @@ use std::str;
 use std::num::Wrapping;
 
 pub struct Header {
-    title: String,
-    supports_cgb: bool,
-    supports_sgb: bool,
+    _title: String,
+    _supports_cgb: bool,
+    _supports_sgb: bool,
     cartridge_type: u8,
-    rom_size: u8,
-    ram_size: u8,
+    _rom_size: u8,
+    _ram_size: u8,
 }
 
 impl Header {
@@ -27,12 +27,12 @@ impl Header {
         assert_eq!(header_checksum, x);
 
         Header {
-            title,
-            supports_cgb,
-            supports_sgb,
+            _title: title,
+            _supports_cgb: supports_cgb,
+            _supports_sgb: supports_sgb,
             cartridge_type,
-            rom_size,
-            ram_size,
+            _rom_size: rom_size,
+            _ram_size: ram_size,
         }
     }
 

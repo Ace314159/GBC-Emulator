@@ -22,7 +22,7 @@ impl MemoryHandler for None {
         }
     }
     
-    fn write(&mut self, addr: u16, value: u8) {
+    fn write(&mut self, addr: u16, _value: u8) {
         if addr > 0x8000 {
             panic!("External RAM not supported!");
         }
