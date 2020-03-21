@@ -313,7 +313,7 @@ impl CPU {
             0x76 => self.halt(io),
             0x10 => { /*println!("STOP Called")*/ }, // STOP
             0xF3 => self.ime = false,
-            0xFB => { self.ime = true; self.emulate_instr(io); /* Interrupt not handled until next instruction */ },
+            0xFB => { self.ime = true; /* Interrupt not handled until next instruction */ },
             
             // Rotates
             0x07 => { self.regs.a = self.rlc(self.regs.a); self.regs.clear_flag(Flag::Z); },

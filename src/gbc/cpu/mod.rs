@@ -9,6 +9,7 @@ use registers::Flag;
 
 pub struct CPU {
     regs: Registers,
+    prev_ime: bool,
     ime: bool,
     is_halted: bool,
     p: bool,
@@ -18,6 +19,7 @@ impl CPU {
     pub fn new() -> Self {
         CPU {
             regs: Registers::new(),
+            prev_ime: false,
             ime: false,
             is_halted: false,
             p: false,
@@ -36,7 +38,7 @@ impl CPU {
     pub const INTERRUPT_VECTORS: [u16; 5] = [0x0040, 0x0048, 0x0050, 0x0058, 0x0060];
 
     fn handle_interrupts(&mut self, io: &mut IO) {
-        if !self.is_halted && !self.ime { return }
+        if !self.is_halted && !self.prev_ime { self.prev_ime = self.ime; return }
 
         let interrupts = io.int_flags & io.int_enable;
 
@@ -44,12 +46,13 @@ impl CPU {
             let mask = 1 << i;
             if interrupts & mask != 0 {
                 self.is_halted = false;
-                if self.ime {
+                if self.prev_ime {
                     self.handle_interrupt(io, CPU::INTERRUPT_VECTORS[i]);
                     io.int_flags &= !mask;
                 }
             }
         }
+        self.prev_ime = self.ime;
     }
 
     pub fn emulate_boot_rom(&mut self, io: &mut IO) {
