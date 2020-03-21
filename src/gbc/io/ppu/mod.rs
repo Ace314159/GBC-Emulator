@@ -257,7 +257,7 @@ impl PPU {
                 }
             }
         } else { // VBlank
-            if self.y_coord == 144 && self.clock_num == 4 {
+            if self.y_coord == 144 && self.clock_num == 2 {
                 self.screen.render();
                 interrupt = IO::VBLANK_INT;
             }

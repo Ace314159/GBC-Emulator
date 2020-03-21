@@ -312,7 +312,7 @@ impl CPU {
             0x00 => {}, // NOP
             0x76 => self.halt(io),
             0x10 => { /*println!("STOP Called")*/ }, // STOP
-            0xF3 => self.ime = false,
+            0xF3 => { self.prev_ime = false; self.ime = false; },
             0xFB => { self.ime = true; /* Interrupt not handled until next instruction */ },
             
             // Rotates
@@ -707,6 +707,8 @@ impl CPU {
     // Interrupts
     pub fn handle_interrupt(&mut self, io: &mut IO, vector: u16) {
         // ISR - Interrupt Service Routine
+        self.prev_ime = false;
+        self.ime = false;
         self.internal_cycle(io);
         self.internal_cycle(io);
         self.stack_push16(io, self.regs.pc);
