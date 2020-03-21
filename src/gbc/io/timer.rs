@@ -61,7 +61,7 @@ impl MemoryHandler for Timer {
             0xFF04 => (self.divider_counter >> 8) as u8,
             0xFF05 => self.counter,
             0xFF06 => self.modulo,
-            0xFF07 => ((self.enabled as u8) << 2) | self.clock_select,
+            0xFF07 => 0xF8 | ((self.enabled as u8) << 2) | self.clock_select,
             _ => panic!("Unexpected Address for Timer!")
         }
     }

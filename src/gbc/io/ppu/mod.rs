@@ -71,7 +71,7 @@ impl MemoryHandler for PPU {
             0xFF40 => shift!(lcd_enable, 7) | shift!(window_map_select, 6) | shift!(window_enable, 5) |
                       shift!(bg_window_tiles_select, 4) | shift!(bg_map_select, 3) | shift!(obj_size, 2) |
                       shift!(obj_enable, 1) | shift!(bg_priority, 0),
-            0xFF41 => shift!(enable_coincidence_int, 6) | shift!(enable_oam_int, 5) | shift!(enable_vblank_int, 4) |
+            0xFF41 => 0x80 | shift!(enable_coincidence_int, 6) | shift!(enable_oam_int, 5) | shift!(enable_vblank_int, 4) |
                       shift!(enable_hblank_int, 3) | shift!(coincidence_flag, 2) | self.mode,
             0xFF42 => self.scroll_y,
             0xFF43 => self.scroll_x,
@@ -80,13 +80,13 @@ impl MemoryHandler for PPU {
             0xFF46 => self.oam_dma_page,
             0xFF47 => if self.mode != 3 {
                 self.bg_palette.iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 )
-            } else { 0xFF},
+            } else { 0xFF },
             0xFF48 => if self.mode != 3 {
                 self.obj_palettes[0].iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 )
-            } else { 0xFF},
+            } else { 0xFF },
             0xFF49 => if self.mode != 3 {
                 self.obj_palettes[1].iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 )
-            } else { 0xFF},
+            } else { 0xFF },
             0xFF4A => self.window_y,
             0xFF4B => self.window_x,
             _ => panic!("Unexpected Address for PPU!"),
