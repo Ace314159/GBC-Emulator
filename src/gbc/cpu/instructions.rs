@@ -362,7 +362,7 @@ impl CPU {
             0xC8 => { self.internal_cycle(io); conditional!(Z, { self.ret(io) }, self.regs.pc); },
             0xD0 => { self.internal_cycle(io); n_conditional!(C, { self.ret(io) }, self.regs.pc); },
             0xD8 => { self.internal_cycle(io); conditional!(C, { self.ret(io) }, self.regs.pc); },
-            0xD9 => { self.regs.pc = self.ret(io); self.ime = true; },
+            0xD9 => { self.regs.pc = self.ret(io); self.prev_ime = true; self.ime = true; },
 
             _ => panic!("Unoffical Opcode {:X}", opcode),
         };
