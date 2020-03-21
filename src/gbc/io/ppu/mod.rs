@@ -218,7 +218,7 @@ impl PPU {
             self.mode = 0;
         }
 
-        let stat_signal = self.coincidence_int || self.oam_int; || self.vblank_int || self.hblank_int;
+        let stat_signal = self.coincidence_int || self.oam_int || self.vblank_int || self.hblank_int;
         self.coincidence_int = false;
         self.oam_int = false;
         self.vblank_int = false;
@@ -255,6 +255,9 @@ impl PPU {
                         self.render_line();
                     } else if self.clock_num == self.hblank_clock {
                         self.mode = 0;
+                        if self.enable_hblank_int {
+                            self.hblank_int = true;
+                        }
                     }
                 }
             }
@@ -269,7 +272,7 @@ impl PPU {
             }
             if self.y_coord != 144 || self.clock_num >= 4 {
                 self.mode = 1;
-                if self.enable_vblank_int || self.enable_oam_int { self.vblank_int = true; }
+                if self.enable_vblank_int { self.vblank_int = true; }
             }
         }
 
@@ -312,7 +315,7 @@ impl PPU {
     }
 
     fn render_line(&mut self) {
-        self.hblank_clock = 247 + self.scroll_x as u16 % 8;
+        self.hblank_clock = 254 + self.scroll_x as u16 % 8;
         let bg_map_offset: u16 = if self.bg_map_select { 0x9C00 } else { 0x9800 };
         let y = self.y_coord.wrapping_add(self.scroll_y) as u16;
         self.current_sprite_i = 0;
