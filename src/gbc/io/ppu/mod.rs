@@ -246,7 +246,9 @@ impl PPU {
                     if self.clock_num == 0 && self.y_coord != 0 {
                         self.coincidence_flag = false;
                     }
-                    if self.clock_num == 4 {
+                    if self.clock_num == 2 && self.y_coord == 2 {
+                        if self.enable_oam_int { self.oam_int = true; }
+                    } else if self.clock_num == 4 {
                         self.mode = 2;
                         if self.enable_oam_int { self.oam_int = true; }
                     }
@@ -256,14 +258,13 @@ impl PPU {
                         self.render_line();
                     } else if self.clock_num == self.hblank_clock {
                         self.mode = 0;
-                        if self.enable_hblank_int {
-                            self.hblank_int = true;
-                        }
+                        if self.enable_hblank_int { self.hblank_int = true; }
                     }
                 }
             }
         } else { // VBlank
             if self.y_coord == 144 && self.clock_num == 2 {
+                self.mode = 1;
                 self.screen.render();
                 interrupt = IO::VBLANK_INT;
             }
@@ -271,9 +272,11 @@ impl PPU {
                 self.y_coord = 0;
                 self.y_coord_inc = 0;
             }
-            if self.y_coord != 144 || self.clock_num >= 4 {
-                self.mode = 1;
+            if self.y_coord > 144 || self.clock_num >= 4 {
                 if self.enable_vblank_int { self.vblank_int = true; }
+            }
+            if self.y_coord == 144 && self.clock_num == 2 {
+                if self.enable_oam_int { self.vblank_int = true; }
             }
         }
 
