@@ -10,7 +10,7 @@ impl Audio {
     pub fn new(sdl_ctx: &sdl2::Sdl) -> Self {
         let desired_spec = AudioSpecDesired {
             freq: Some(Audio::SAMPLE_RATE),
-            channels: Some(1),
+            channels: Some(2),
             samples: None,
         };
         let audio = Audio {
@@ -20,7 +20,7 @@ impl Audio {
         audio
     }
 
-    pub fn queue(&self, sample: f32) {
-        self.queue.queue(&[sample]);
+    pub fn queue(&self, left_sample: f32, right_sample: f32) {
+        self.queue.queue(&[left_sample, right_sample]);
     }
 }
