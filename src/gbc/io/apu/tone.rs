@@ -12,7 +12,7 @@ pub struct Tone {
     initial_volume: u8, // 4 bit
     inc_envelope: bool,
     envelope_num: u8, // 3 bit
-    freq: u16, // 11 bit
+    pub freq: u16, // 11 bit
     use_length: bool,
     
     // Sample Generation
