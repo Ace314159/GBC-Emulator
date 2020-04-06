@@ -101,6 +101,10 @@ impl Tone {
         else { 0.0 }
     }
 
+    pub fn playing_sound(&self) -> bool {
+        self.playing_sound
+    }
+
     fn reset_duty_clock(&mut self) {
         self.duty_clock = 2048 - self.freq_data as u32;
     }

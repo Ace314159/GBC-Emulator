@@ -10,9 +10,9 @@ pub struct APU {
     // Registers
     tone: Tone,
     // Channel Control / Volume
-    enable_left: bool,
+    enable_left_analog: bool,
     left_volume: u8,
-    enable_right: bool,
+    enable_right_analog: bool,
     right_volume: u8,
     // Sound Output
     noise_left_enable: bool,
@@ -23,6 +23,7 @@ pub struct APU {
     wave_right_enable: bool,
     tone_right_enable: bool,
     tone_sweep_right_enable: bool,
+    enable_sound: bool,
 
     // Audio Output
     audio: Audio,
@@ -34,18 +35,22 @@ pub struct APU {
 impl MemoryHandler for APU {
     fn read(&self, addr: u16) -> u8 {
         macro_rules! shift { ($bit:ident, $num:expr) => { ((self.$bit as u8) << $num) } }
+        macro_rules! shift2 { ($channel:ident, $num:expr) => { ((self.$channel.playing_sound() as u8) << $num) } }
 
         match addr {
             0xFF16 ..= 0xFF19 => self.tone.read(addr),
             0xFF24 => {
-                shift!(enable_left, 7) | shift!(left_volume, 4) | shift!(enable_right, 3) | self.right_volume
+                shift!(enable_left_analog, 7) | shift!(left_volume, 4) | shift!(enable_right_analog, 3) | self.right_volume
             }
             0xFF25 => {
                 shift!(noise_left_enable, 7) | shift!(wave_left_enable, 6) | shift!(tone_left_enable, 5) |
                 shift!(tone_sweep_left_enable, 4) | shift!(noise_right_enable, 3) | shift!(wave_right_enable, 2) |
                 shift!(tone_right_enable, 1) | shift!(tone_sweep_right_enable, 0)
             },
-            _ => { 0xFF }, //panic!("Unexpted Address for APU!"),
+            0xFF26 => {
+                shift!(enable_sound, 7) | shift2!(tone, 1)
+            },
+            _ => { 0xFF }, // panic!("Unexpted Address for APU!"),
         }
     }
 
@@ -53,9 +58,9 @@ impl MemoryHandler for APU {
         match addr {
             0xFF16 ..= 0xFF19 => self.tone.write(addr, value),
             0xFF24 => {
-                self.enable_left = value & 0x80 != 0;
+                self.enable_left_analog = value & 0x80 != 0;
                 self.left_volume = (value >> 4) & 0x7;
-                self.enable_right = value & 0x8 != 0;
+                self.enable_right_analog = value & 0x8 != 0;
                 self.right_volume = value & 0x7;
             },
             0xFF25 => {
@@ -68,7 +73,13 @@ impl MemoryHandler for APU {
                 self.tone_right_enable = value & 0x02 != 0;
                 self.tone_sweep_right_enable = value & 0x01 != 0;
             },
-            _ => {}, //panic!("Unexpected Address for Serial!"),
+            0xFF26 => {
+                self.enable_sound = value & 0x80 != 0;
+                if !self.enable_sound {
+                    self.tone = Tone::new();
+                }
+            },
+            _ => {}, // panic!("Unexpected Address for APU!"),
         }
     }
 }
@@ -79,9 +90,9 @@ impl APU {
             // Registers
             tone: Tone::new(),
             // Channel Control / Volume
-            enable_left: false,
+            enable_left_analog: false,
             left_volume: 0,
-            enable_right: false,
+            enable_right_analog: false,
             right_volume: 0,
             // Sound Output
             noise_left_enable: false,
@@ -92,6 +103,7 @@ impl APU {
             wave_right_enable: false,
             tone_right_enable: false,
             tone_sweep_right_enable: false,
+            enable_sound: false,
 
             // Audio Output
             audio: Audio::new(sdl_ctx),
@@ -108,6 +120,7 @@ impl APU {
     }
 
     fn generate_sample(&mut self) {
+        if !self.enable_sound { return }
         if self.tone_left_enable { self.left_sample_sum += self.tone.generate_sample(); }
         if self.tone_right_enable { self.right_sample_sum += self.tone.generate_sample(); }
         
