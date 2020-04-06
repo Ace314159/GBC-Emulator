@@ -1,6 +1,6 @@
 use super::MemoryHandler;
 use super::Tone;
-use super::Voice;
+use super::Channel;
 
 pub struct ToneSweep {
     tone: Tone,
@@ -41,7 +41,7 @@ impl MemoryHandler for ToneSweep {
     }
 }
 
-impl Voice for ToneSweep {
+impl Channel for ToneSweep {
     fn emulate_clock(&mut self) {
         self.tone.emulate_clock();
         
@@ -52,13 +52,14 @@ impl Voice for ToneSweep {
         }
     }
 
-    fn generate_sample(&self) -> f32 {
-        self.tone.generate_sample()
+    fn clock_sweep(&mut self) {
+
     }
 
-    fn playing_sound(&self) -> bool {
-        self.tone.playing_sound()
-    }
+    fn clock_length_counter(&mut self) { self.tone.clock_length_counter() }
+    fn clock_envelope(&mut self) { self.tone.clock_envelope() }
+    fn generate_sample(&self) -> f32 { self.tone.generate_sample() }
+    fn playing_sound(&self) -> bool { self.tone.playing_sound() }
 }
 
 impl ToneSweep {

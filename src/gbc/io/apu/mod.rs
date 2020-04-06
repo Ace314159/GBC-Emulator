@@ -2,6 +2,8 @@ mod tone_sweep;
 mod tone;
 mod audio;
 
+mod timer;
+
 use super::MemoryHandler;
 use tone_sweep::ToneSweep;
 use tone::Tone;
@@ -27,6 +29,10 @@ pub struct APU {
     tone_right_enable: bool,
     tone_sweep_right_enable: bool,
     enable_sound: bool,
+
+    // Frame Sequencer
+    frame_sequencer_counter: u16,
+    frame_sequencer_step: u8,
 
     // Audio Output
     audio: Audio,
@@ -112,6 +118,10 @@ impl APU {
             tone_sweep_right_enable: false,
             enable_sound: false,
 
+            // Frame Sequencer
+            frame_sequencer_counter: 0x800,
+            frame_sequencer_step: 0,
+
             // Audio Output
             audio: Audio::new(sdl_ctx),
             left_sample_sum: 0.0,
@@ -123,8 +133,38 @@ impl APU {
     pub fn emulate_clock(&mut self) {
         self.tone_sweep.emulate_clock();
         self.tone.emulate_clock();
-
+        self.emulate_frame_counter();
+        
         self.generate_sample();
+    }
+
+    fn emulate_frame_counter(&mut self) {
+        if self.frame_sequencer_counter == 0 {
+            self.frame_sequencer_counter = 0x800;
+            match self.frame_sequencer_step {
+                0 => self.clock_length_counters(),
+                2 => { self.clock_length_counters(); self.clock_sweeps(); },
+                4 => self.clock_length_counters(),
+                6 => { self.clock_length_counters(); self.clock_sweeps(); }
+                7 => self.clock_envelopes(),
+                _ => {}
+            }
+            self.frame_sequencer_step = (self.frame_sequencer_step + 1) % 8;
+        } else { self.frame_sequencer_counter -= 1 }
+    }
+
+    fn clock_length_counters(&mut self) {
+        self.tone_sweep.clock_length_counter();
+        self.tone.clock_length_counter();
+    }
+
+    fn clock_sweeps(&mut self) {
+        self.tone_sweep.clock_sweep();
+    }
+
+    fn clock_envelopes(&mut self) {
+        self.tone_sweep.clock_envelope();
+        self.tone.clock_envelope();
     }
 
     fn generate_sample(&mut self) {
@@ -152,8 +192,11 @@ impl APU {
     const VOLUME_FACTOR: f32 = 0.005;
 }
 
-trait Voice {
+trait Channel {
     fn emulate_clock(&mut self);
+    fn clock_sweep(&mut self);
+    fn clock_length_counter(&mut self);
+    fn clock_envelope(&mut self);
     fn generate_sample(&self) -> f32;
     fn playing_sound(&self) -> bool;
 }
