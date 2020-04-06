@@ -3,6 +3,7 @@ mod tone;
 mod audio;
 
 mod timer;
+mod length_counter;
 
 use super::MemoryHandler;
 use tone_sweep::ToneSweep;

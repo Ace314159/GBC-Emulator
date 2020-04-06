@@ -1,6 +1,8 @@
 use super::MemoryHandler;
 use super::Channel;
+
 use super::timer::Timer;
+use super::length_counter::LengthCounter;
 
 
 pub struct Tone {
@@ -14,10 +16,9 @@ pub struct Tone {
     use_length: bool,
     
     // Sample Generation
-    playing_sound: bool,
     timer: Timer,
     duty_pos: usize,
-    length: u8,
+    length_counter: LengthCounter,
     volume: u8,
     envelope_counter: u32,
     envelope_sweep_counter: u8,
@@ -41,7 +42,7 @@ impl MemoryHandler for Tone {
             0xFF16 => {
                 self.wave_duty = value >> 6;
                 self.length_reload = value & 0x1F;
-                self.length = 64 - self.length_reload;
+                self.length_counter.reload(64 - self.length_reload);
             },
             0xFF17 => {
                 self.initial_volume = value >> 4;
@@ -55,7 +56,13 @@ impl MemoryHandler for Tone {
                 self.freq = self.freq & !0xFF | value as u16;
             }
             0xFF19 => {
-                if value & 0x80 != 0 { self.playing_sound = true }
+                if value & 0x80 != 0 {
+                    self.length_counter.reload(self.length_reload);
+                    self.length_counter.enable();
+                    self.timer.reload(2048 - self.freq);
+                    self.duty_pos = 0;
+                    self.volume = self.initial_volume;
+                }
                 self.use_length = value & 0x40 != 0;
                 self.freq = self.freq & !0x700 | (value as u16 & 0x7) << 8;
             }
@@ -66,7 +73,7 @@ impl MemoryHandler for Tone {
 
 impl Channel for Tone {
     fn emulate_clock(&mut self) {
-        if !self.playing_sound { return }
+        if !self.length_counter.enabled() { return }
 
         if self.timer.clock(2048 - self.freq) {
             self.duty_pos = (self.duty_pos + 1) % 8;
@@ -77,8 +84,7 @@ impl Channel for Tone {
 
     fn clock_length_counter(&mut self) {
         if self.use_length {
-            if self.length == 0 { self.playing_sound = false; return }
-            else { self.length -= 1 }
+            self.length_counter.clock();
         }
     }
 
@@ -96,14 +102,14 @@ impl Channel for Tone {
     }
 
     fn generate_sample(&self) -> f32 {
-        if self.playing_sound {
+        if self.length_counter.enabled() {
             self.volume as f32 * Tone::DUTY_CYCLES[self.wave_duty as usize][self.duty_pos] as f32
         }
         else { 0.0 }
     }
 
     fn playing_sound(&self) -> bool {
-        self.playing_sound
+        self.length_counter.enabled()
     }
 }
 
@@ -124,13 +130,12 @@ impl Tone {
             inc_envelope: false,
             envelope_num: 0,
             freq: 0,
-            playing_sound: false,
             
             // Sample Generation
             use_length: false,
             timer: Timer::new(0),
             duty_pos: 0,
-            length: 0,
+            length_counter: LengthCounter::new(),
             volume: 0,
             envelope_counter: 0,
             envelope_sweep_counter: 0,
