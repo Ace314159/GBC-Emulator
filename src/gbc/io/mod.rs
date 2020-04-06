@@ -2,6 +2,7 @@ extern crate sdl2;
 
 mod header;
 mod mbc;
+mod apu;
 mod ppu;
 mod ram;
 mod serial;
@@ -12,6 +13,7 @@ use sdl2::event::Event;
 
 use header::Header;
 use mbc::MemoryBankController;
+use apu::APU;
 use ppu::PPU;
 use ram::RAM;
 use serial::Serial;
@@ -26,6 +28,7 @@ pub trait MemoryHandler {
 pub struct IO {
     // IO Devices
     mbc: Box<dyn MemoryBankController>,
+    apu: APU,
     ppu: PPU,
     wram: RAM,
     serial: Serial,
@@ -50,6 +53,7 @@ impl IO {
         IO {
             mbc: mbc::get_mbc(header.get_cartridge_type(), rom),
             ppu: PPU::new(&sdl_ctx),
+            apu: APU::new(&sdl_ctx),
             wram: RAM::new(0xC000, 0xDFFF),
             serial: Serial::new(),
             joypad: Joypad::new(),
@@ -77,6 +81,7 @@ impl IO {
             0xFF01 ..= 0xFF02 => self.serial.read(addr),
             0xFF04 ..= 0xFF07 => self.timer.read(addr),
             0xFF0F => self.int_flags,
+            0xFF10 ..= 0xFF26 => self.apu.read(addr),
             0xFF40 ..= 0xFF4A => self.ppu.read(addr),
             0xFF80 ..= 0xFFFE => self.hram.read(addr),
             0xFFFF => self.int_enable,
@@ -96,6 +101,7 @@ impl IO {
             0xFF01 ..= 0xFF02 => self.serial.write(addr, value),
             0xFF04 ..= 0xFF07 => self.timer.write(addr, value),
             0xFF0F => self.int_flags = value | 0xE0,
+            0xFF10 ..= 0xFF26 => self.apu.write(addr, value),
             0xFF40 ..= 0xFF4A => self.ppu.write(addr, value),
             0xFF80 ..= 0xFFFE => self.hram.write(addr, value),
             0xFFFF => self.int_enable = value,
@@ -111,6 +117,7 @@ impl IO {
         self.int_flags |= self.ppu.emulate_clock();
         self.int_flags |= self.ppu.emulate_clock();
         self.int_flags |= self.ppu.emulate_clock();
+        self.apu.emulate_clock();
 
         if self.c % 10000 == 0 {
             let mut keyboard_events: Vec<Event> = Vec::new();
