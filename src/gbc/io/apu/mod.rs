@@ -137,5 +137,5 @@ impl APU {
     }
 
     const CLOCKS_PER_SAMPLE: f32 = GBC::CLOCK_SPEED as f32 / Audio::SAMPLE_RATE as f32;
-    const VOLUME_FACTOR: f32 = 0.02;
+    const VOLUME_FACTOR: f32 = 0.005;
 }
