@@ -1,12 +1,14 @@
 extern crate gl;
 
 use sdl2::video::{GLContext, Window, GLProfile, SwapInterval};
+use super::super::super::GBC;
 
-use std::time::{SystemTime};
+use std::time::{SystemTime, Duration};
 pub struct Screen {
     _gl_ctx: GLContext,
     window: Window,
-    prev_time: SystemTime,
+    prev_frame_time: SystemTime,
+    prev_fps_update_time: SystemTime,
     frames_passed: u32,
 
     _screen_tex: u32,
@@ -18,6 +20,7 @@ impl Screen {
     pub const WIDTH: u32 = 160;
     pub const HEIGHT: u32 = 144;
     const SCALE: u32 = 3;
+    const FRAME_PERIOD: Duration = Duration::from_nanos(1e9 as u64 * 114 * 154 / GBC::CLOCK_SPEED as u64);
 
     pub fn new(sdl_ctx: &sdl2::Sdl) -> Self {
         let video_subsystem = sdl_ctx.video().unwrap();
@@ -61,7 +64,8 @@ impl Screen {
 
         Screen {
             _gl_ctx: gl_ctx,
-            prev_time: SystemTime::now(),
+            prev_frame_time: SystemTime::now(),
+            prev_fps_update_time: SystemTime::now(),
             frames_passed: 0,
 
             _screen_tex: screen_tex,
@@ -95,16 +99,18 @@ impl Screen {
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
         }
         
+        while SystemTime::now().duration_since(self.prev_frame_time).unwrap() < Screen::FRAME_PERIOD {}
         self.window.gl_swap_window();
+        self.prev_frame_time = SystemTime::now();
 
         self.frames_passed += 1;
         let cur_time = SystemTime::now();
-        let time_passed = cur_time.duration_since(self.prev_time).unwrap().as_secs();
-        if time_passed >= 1 {
-            let fps = self.frames_passed as f64 / time_passed as f64;
-            self.window.set_title(&format!("GBC Emulator - {} FPS", fps)).unwrap();
+        let time_passed = cur_time.duration_since(self.prev_fps_update_time).unwrap().as_secs_f64();
+        if time_passed >= 1.0 {
+            let fps = self.frames_passed as f64 / time_passed;
+            self.window.set_title(&format!("GBC Emulator - {:.2} FPS", fps)).unwrap();
             self.frames_passed = 0;
-            self.prev_time = cur_time;
+            self.prev_fps_update_time = cur_time;
         }
     }
 }

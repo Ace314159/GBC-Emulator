@@ -4,6 +4,7 @@ mod audio;
 use super::MemoryHandler;
 use tone::Tone;
 use audio::Audio;
+use super::super::GBC;
 
 pub struct APU {
     // Registers
@@ -81,6 +82,5 @@ impl APU {
         }
     }
 
-    const CLOCK_SPEED: u32 = 4194304 / 4;
-    const CLOCKS_PER_SAMPLE: f32 = APU::CLOCK_SPEED as f32 / Audio::SAMPLE_RATE as f32;
+    const CLOCKS_PER_SAMPLE: f32 = GBC::CLOCK_SPEED as f32 / Audio::SAMPLE_RATE as f32;
 }
