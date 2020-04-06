@@ -1,13 +1,16 @@
+mod tone_sweep;
 mod tone;
 mod audio;
 
 use super::MemoryHandler;
+use tone_sweep::ToneSweep;
 use tone::Tone;
 use audio::Audio;
 use super::super::GBC;
 
 pub struct APU {
     // Registers
+    tone_sweep: ToneSweep,
     tone: Tone,
     // Channel Control / Volume
     enable_left_analog: bool,
@@ -38,6 +41,7 @@ impl MemoryHandler for APU {
         macro_rules! shift2 { ($channel:ident, $num:expr) => { ((self.$channel.playing_sound() as u8) << $num) } }
 
         match addr {
+            0xFF10 ..= 0xFF14 => self.tone_sweep.read(addr),
             0xFF16 ..= 0xFF19 => self.tone.read(addr),
             0xFF24 => {
                 shift!(enable_left_analog, 7) | shift!(left_volume, 4) | shift!(enable_right_analog, 3) | self.right_volume
@@ -56,6 +60,7 @@ impl MemoryHandler for APU {
 
     fn write(&mut self, addr: u16, value: u8) {
         match addr {
+            0xFF10 ..= 0xFF14 => self.tone_sweep.write(addr, value),
             0xFF16 ..= 0xFF19 => self.tone.write(addr, value),
             0xFF24 => {
                 self.enable_left_analog = value & 0x80 != 0;
@@ -76,6 +81,7 @@ impl MemoryHandler for APU {
             0xFF26 => {
                 self.enable_sound = value & 0x80 != 0;
                 if !self.enable_sound {
+                    self.tone_sweep = ToneSweep::new();
                     self.tone = Tone::new();
                 }
             },
@@ -88,6 +94,7 @@ impl APU {
     pub fn new(sdl_ctx: &sdl2::Sdl) -> Self {
         APU {
             // Registers
+            tone_sweep: ToneSweep::new(),
             tone: Tone::new(),
             // Channel Control / Volume
             enable_left_analog: false,
@@ -114,6 +121,7 @@ impl APU {
     }
 
     pub fn emulate_clock(&mut self) {
+        self.tone_sweep.emulate_clock();
         self.tone.emulate_clock();
 
         self.generate_sample();
@@ -121,7 +129,11 @@ impl APU {
 
     fn generate_sample(&mut self) {
         if !self.enable_sound { return }
+
+        if self.tone_sweep_left_enable { self.left_sample_sum += self.tone_sweep.generate_sample(); }
         if self.tone_left_enable { self.left_sample_sum += self.tone.generate_sample(); }
+
+        if self.tone_sweep_right_enable { self.right_sample_sum += self.tone_sweep.generate_sample(); }
         if self.tone_right_enable { self.right_sample_sum += self.tone.generate_sample(); }
         
         self.sample_count += 1;
@@ -138,4 +150,10 @@ impl APU {
 
     const CLOCKS_PER_SAMPLE: f32 = GBC::CLOCK_SPEED as f32 / Audio::SAMPLE_RATE as f32;
     const VOLUME_FACTOR: f32 = 0.005;
+}
+
+trait Voice {
+    fn emulate_clock(&mut self);
+    fn generate_sample(&self) -> f32;
+    fn playing_sound(&self) -> bool;
 }

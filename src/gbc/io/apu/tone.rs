@@ -1,4 +1,5 @@
 use super::MemoryHandler;
+use super::Voice;
 
 pub struct Tone {
     // Registers
@@ -6,7 +7,7 @@ pub struct Tone {
     length_data: u8, // 6 bit
     initial_volume: u8, // 4 bit
     inc_envelope: bool,
-    envelope_sweep_num: u8, // 3 bit
+    envelope_num: u8, // 3 bit
     freq_data: u16, // 11 bit
     playing_sound: bool,
     use_length: bool,
@@ -26,7 +27,7 @@ impl MemoryHandler for Tone {
 
         match addr {
             0xFF16 => shift!(wave_duty, 6) | 0x1F,
-            0xFF17 => shift!(initial_volume, 4) | shift!(inc_envelope, 3) | self.envelope_sweep_num,
+            0xFF17 => shift!(initial_volume, 4) | shift!(inc_envelope, 3) | self.envelope_num,
             0xFF18 => 0xFF,
             0xFF19 => 0xBF | shift!(use_length, 6),
             _ => panic!("Unexpected Address for "),
@@ -44,9 +45,9 @@ impl MemoryHandler for Tone {
                 self.initial_volume = value >> 4;
                 self.volume = self.initial_volume;
                 self.inc_envelope = value & 0x8 != 0;
-                self.envelope_sweep_num = value & 0x7;
+                self.envelope_num = value & 0x7;
                 self.envelope_counter = 0x4000;
-                self.envelope_sweep_counter = self.envelope_sweep_num;
+                self.envelope_sweep_counter = self.envelope_num;
             },
             0xFF18 => {
                 self.freq_data = self.freq_data & !0xFF | value as u16;
@@ -61,37 +62,8 @@ impl MemoryHandler for Tone {
     }
 }
 
-impl Tone {
-    const DUTY_CYCLES: [[u8; 8]; 4] = [
-        [1, 0, 0, 0, 0, 0, 0, 0],
-        [1, 1, 0, 0, 0, 0, 0, 0],
-        [1, 1, 1, 1, 0, 0, 0, 0],
-        [1, 1, 1, 1, 1, 1, 0, 0],
-    ];
-
-    pub fn new() -> Self {
-        Tone {
-            // Registers
-            wave_duty: 0,
-            length_data: 0,
-            initial_volume: 0,
-            inc_envelope: false,
-            envelope_sweep_num: 0,
-            freq_data: 0,
-            playing_sound: false,
-            use_length: false,
-            
-            // Sample Generation
-            duty_clock: 0,
-            duty_pos: 0,
-            length: 0,
-            volume: 0,
-            envelope_counter: 0,
-            envelope_sweep_counter: 0,
-        }
-    }
-
-    pub fn emulate_clock(&mut self) {
+impl Voice for Tone {
+    fn emulate_clock(&mut self) {
         if !self.playing_sound { return }
 
         if self.use_length {
@@ -119,15 +91,46 @@ impl Tone {
         } else { self.duty_clock -= 1 }
     }
 
-    pub fn generate_sample(&self) -> f32 {
+    fn generate_sample(&self) -> f32 {
         if self.playing_sound {
             self.volume as f32 * Tone::DUTY_CYCLES[self.wave_duty as usize][self.duty_pos] as f32
         }
         else { 0.0 }
     }
 
-    pub fn playing_sound(&self) -> bool {
+    fn playing_sound(&self) -> bool {
         self.playing_sound
+    }
+}
+
+impl Tone {
+    const DUTY_CYCLES: [[u8; 8]; 4] = [
+        [0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 1, 1, 1],
+        [0, 1, 1, 1, 1, 1, 1, 0],
+    ];
+
+    pub fn new() -> Self {
+        Tone {
+            // Registers
+            wave_duty: 0,
+            length_data: 0,
+            initial_volume: 0,
+            inc_envelope: false,
+            envelope_num: 0,
+            freq_data: 0,
+            playing_sound: false,
+            use_length: false,
+            
+            // Sample Generation
+            duty_clock: 0,
+            duty_pos: 0,
+            length: 0,
+            volume: 0,
+            envelope_counter: 0,
+            envelope_sweep_counter: 0,
+        }
     }
 
     fn reset_duty_clock(&mut self) {
