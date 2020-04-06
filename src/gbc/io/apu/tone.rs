@@ -50,15 +50,11 @@ impl MemoryHandler for Tone {
             },
             0xFF18 => {
                 self.freq_data = self.freq_data & !0xFF | value as u16;
-                self.reset_duty_clock();
-                self.duty_pos = 0;
             }
             0xFF19 => {
-                self.playing_sound = value & 0x80 != 0;
+                if value & 0x80 != 0 { self.playing_sound = true }
                 self.use_length = value & 0x40 != 0;
                 self.freq_data = self.freq_data & !0x700 | (value as u16 & 0x7) << 8;
-                self.reset_duty_clock();
-                self.duty_pos = 0;
             }
             _ => {},
         }
