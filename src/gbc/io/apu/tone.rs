@@ -35,6 +35,7 @@ impl MemoryHandler for Tone {
             0xFF16 => {
                 self.wave_duty = value >> 6;
                 self.length_data = value & 0x1F;
+                self.length = (64 - self.length_data as u32) * 4096;
             },
             0xFF17 => {
                 self.initial_volume = value >> 4;
@@ -87,6 +88,11 @@ impl Tone {
 
     pub fn emulate_clock(&mut self) {
         if !self.playing_sound { return }
+        if self.use_length {
+            if self.length == 0 { self.playing_sound = false; return }
+            else { self.length -= 1 }
+        }
+        
 
         if self.duty_clock == 0 {
             self.reset_duty_clock();
