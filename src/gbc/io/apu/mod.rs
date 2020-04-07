@@ -183,9 +183,11 @@ impl APU {
         self.clock_count += 1.0;
 
         if self.clock_count as f32 >= APU::CLOCKS_PER_SAMPLE {
-            let left_sample = self.left_sample_sum / self.sample_count as f32 * APU::VOLUME_FACTOR;
-            let right_sample = self.right_sample_sum / self.sample_count as f32 * APU::VOLUME_FACTOR;
-            self.audio.queue(self.left_volume as f32 * left_sample, self.right_volume as f32 * right_sample);
+            let mut left_sample = self.left_sample_sum / self.sample_count as f32;
+            left_sample *= (self.left_volume + 1) as f32;
+            let mut right_sample = self.right_sample_sum / self.sample_count as f32;
+            right_sample *= (self.right_volume + 1) as f32;
+            self.audio.queue(APU::VOLUME_FACTOR * left_sample, APU::VOLUME_FACTOR * right_sample);
             self.left_sample_sum = 0.0;
             self.right_sample_sum = 0.0;
             self.sample_count = 0;
