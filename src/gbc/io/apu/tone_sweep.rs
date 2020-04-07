@@ -33,16 +33,19 @@ impl MemoryHandler for ToneSweep {
         match addr {
             0xFF10 => {
                 self.sweep_period = (value >> 4) & 0x7;
-                self.sweep_negate = value & 0x4 != 0;
+                self.sweep_negate = value & 0x8 != 0;
                 self.sweep_shift = value & 0x7;
             },
             0xFF14 => {
                 self.tone.write(addr + 5, value);
                 if value & 0x80 != 0 {
+                    self.enabled = true;
                     self.freq_latch = self.tone.freq;
-                    self.sweep_counter = self.sweep_period;
+                    self.sweep_counter = if self.sweep_period == 0 { 8 } else { self.sweep_period };
                     self.sweep_enabled = self.sweep_period != 0 || self.sweep_shift != 0;
-                    self.overflow_check();
+                    if self.sweep_shift != 0 {
+                        self.overflow_check(self.calc_new_freq());
+                    }
                 }
             }
             _ => self.tone.write(addr + 5, value),
@@ -56,16 +59,17 @@ impl Channel for ToneSweep {
     }
 
     fn clock_sweep(&mut self) {
-        if self.sweep_enabled && self.sweep_period != 0 {
-            self.sweep_counter -= 1;
-            if self.sweep_counter == 0 {
+        self.sweep_counter = self.sweep_counter.wrapping_sub(1);
+        if self.sweep_enabled && self.sweep_counter == 0 {
+            if self.sweep_period != 0 {
                 let new_freq = self.calc_new_freq();
-                if new_freq < 0x800 && self.sweep_shift != 0 {
+                if !self.overflow_check(new_freq) {
                     self.tone.freq = new_freq;
-                    self.overflow_check();
+                    self.freq_latch = new_freq;
+                    self.overflow_check(self.calc_new_freq());
                 }
-                self.sweep_counter = self.sweep_period;
             }
+            self.sweep_counter = if self.sweep_period == 0 { 8 } else { self.sweep_period };
         }
     }
 
@@ -87,22 +91,26 @@ impl ToneSweep {
 
             // Sample Generation
             sweep_enabled: false,
-            sweep_counter: 0,
+            sweep_counter: 8,
             freq_latch: 0,
             enabled: true,
         }
     }
 
     fn calc_new_freq(&self) -> u16 {
-        let mut operand = self.freq_latch >> self.sweep_shift;
-        if self.sweep_negate { operand = (!operand).wrapping_add(1) };
-        self.freq_latch.wrapping_add(operand)
+        let operand = self.freq_latch >> self.sweep_shift;
+        if self.sweep_negate {
+            self.freq_latch.wrapping_add(!operand).wrapping_add(1)
+        } else {
+            self.freq_latch.wrapping_add(operand)
+        }
     }
 
-    fn overflow_check(&mut self) {
-        if self.sweep_shift != 0 && self.calc_new_freq() >= 0x800 {
-            self.sweep_enabled = false;
+    fn overflow_check(&mut self, new_freq: u16) -> bool {
+        if new_freq >= 0x800 {
             self.enabled = false;
-        }
+            self.sweep_enabled = false;
+            true
+        } else { false }
     }
 }

@@ -210,7 +210,7 @@ impl APU {
     }
 
     const CLOCKS_PER_SAMPLE: f32 = GBC::CLOCK_SPEED as f32 / Audio::SAMPLE_RATE as f32;
-    const VOLUME_FACTOR: f32 = 1e-3;
+    const VOLUME_FACTOR: f32 = 2e-3;
 }
 
 trait Channel {
