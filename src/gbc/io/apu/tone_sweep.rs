@@ -57,10 +57,14 @@ impl Channel for ToneSweep {
 
     fn clock_sweep(&mut self) {
         if self.sweep_enabled && self.sweep_period != 0 {
-            let new_freq = self.calc_new_freq();
-            if new_freq < 0x800 && self.sweep_shift != 0 {
-                self.tone.freq = new_freq;
-                self.overflow_check();
+            self.sweep_counter -= 1;
+            if self.sweep_counter == 0 {
+                let new_freq = self.calc_new_freq();
+                if new_freq < 0x800 && self.sweep_shift != 0 {
+                    self.tone.freq = new_freq;
+                    self.overflow_check();
+                }
+                self.sweep_counter = self.sweep_period;
             }
         }
     }
@@ -91,7 +95,7 @@ impl ToneSweep {
 
     fn calc_new_freq(&self) -> u16 {
         let mut operand = self.freq_latch >> self.sweep_shift;
-        if self.sweep_negate { operand = !operand + 1; }
+        if self.sweep_negate { operand = (!operand).wrapping_add(1) };
         self.freq_latch.wrapping_add(operand)
     }
 
