@@ -38,7 +38,7 @@ impl MemoryHandler for Wave {
                 self.length_reload = value;
                 self.length_counter.reload(256 - self.length_reload as u16);
             },
-            0xFF1C => self.output_level = (value & 0x60) >> 5,
+            0xFF1C => self.output_level = (value >> 5) & 0x3,
             0xFF1D => self.freq = self.freq & !0xFF | value as u16,
             0xFF1E => {
                 if value & 0x80 != 0 {

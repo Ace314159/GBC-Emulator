@@ -5,6 +5,7 @@ mod audio;
 
 mod timer;
 mod length_counter;
+mod envelope;
 
 use super::MemoryHandler;
 use tone_sweep::ToneSweep;
