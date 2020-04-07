@@ -1,6 +1,7 @@
 mod tone_sweep;
 mod tone;
 mod wave;
+mod noise;
 mod audio;
 
 mod timer;
@@ -11,6 +12,7 @@ use super::MemoryHandler;
 use tone_sweep::ToneSweep;
 use tone::Tone;
 use wave::Wave;
+use noise::Noise;
 use audio::Audio;
 use super::super::GBC;
 
@@ -19,6 +21,7 @@ pub struct APU {
     tone_sweep: ToneSweep,
     tone: Tone,
     wave: Wave,
+    noise: Noise,
     // Channel Control / Volume
     enable_left_analog: bool,
     left_volume: u8,
@@ -56,6 +59,7 @@ impl MemoryHandler for APU {
             0xFF10 ..= 0xFF14 => self.tone_sweep.read(addr),
             0xFF16 ..= 0xFF19 => self.tone.read(addr),
             0xFF1A ..= 0xFF1E => self.wave.read(addr),
+            0xFF20 ..= 0xFF23 => self.noise.read(addr),
             0xFF24 => {
                 shift!(enable_left_analog, 7) | shift!(left_volume, 4) | shift!(enable_right_analog, 3) | self.right_volume
             }
@@ -65,7 +69,7 @@ impl MemoryHandler for APU {
                 shift!(tone_right_enable, 1) | shift!(tone_sweep_right_enable, 0)
             },
             0xFF26 => {
-                shift!(enable_sound, 7) | shift2!(wave, 2) | shift2!(tone, 1) | shift2!(tone_sweep, 0)
+                shift!(enable_sound, 7) | shift2!(noise, 3) | shift2!(wave, 2) | shift2!(tone, 1) | shift2!(tone_sweep, 0)
             },
             0xFF30 ..= 0xFF3F => self.wave.read_wave_table(addr),
             _ => 0xFF, // panic!("Unexpted Address for APU!"),
@@ -77,6 +81,7 @@ impl MemoryHandler for APU {
             0xFF10 ..= 0xFF14 => self.tone_sweep.write(addr, value),
             0xFF16 ..= 0xFF19 => self.tone.write(addr, value),
             0xFF1A ..= 0xFF1E => self.wave.write(addr, value),
+            0xFF20 ..= 0xFF23 => self.noise.write(addr, value),
             0xFF24 => {
                 self.enable_left_analog = value & 0x80 != 0;
                 self.left_volume = (value >> 4) & 0x7;
@@ -99,6 +104,7 @@ impl MemoryHandler for APU {
                     self.tone_sweep = ToneSweep::new();
                     self.tone = Tone::new();
                     self.wave = Wave::new();
+                    self.noise = Noise::new();
                 }
             },
             0xFF30 ..= 0xFF3F => self.wave.write_wave_table(addr, value),
@@ -114,6 +120,7 @@ impl APU {
             tone_sweep: ToneSweep::new(),
             tone: Tone::new(),
             wave: Wave::new(),
+            noise: Noise:: new(),
             // Channel Control / Volume
             enable_left_analog: false,
             left_volume: 0,
@@ -148,6 +155,8 @@ impl APU {
         self.tone.emulate_clock();
         self.wave.emulate_clock();
         self.wave.emulate_clock();
+        self.noise.emulate_clock();
+
         self.emulate_frame_counter();
         
         self.generate_sample();
@@ -172,6 +181,7 @@ impl APU {
         self.tone_sweep.clock_length_counter();
         self.tone.clock_length_counter();
         self.wave.clock_length_counter();
+        self.noise.clock_length_counter();
     }
 
     fn clock_sweeps(&mut self) {
@@ -181,6 +191,7 @@ impl APU {
     fn clock_envelopes(&mut self) {
         self.tone_sweep.clock_envelope();
         self.tone.clock_envelope();
+        self.noise.clock_envelope();
     }
 
     fn generate_sample(&mut self) {
@@ -189,10 +200,12 @@ impl APU {
         if self.tone_sweep_left_enable { self.left_sample_sum += self.tone_sweep.generate_sample(); }
         if self.tone_left_enable { self.left_sample_sum += self.tone.generate_sample(); }
         if self.wave_left_enable { self.left_sample_sum += self.wave.generate_sample(); }
+        if self.noise_left_enable { self.left_sample_sum += self.noise.generate_sample(); }
 
         if self.tone_sweep_right_enable { self.right_sample_sum += self.tone_sweep.generate_sample(); }
         if self.tone_right_enable { self.right_sample_sum += self.tone.generate_sample(); }
         if self.wave_right_enable { self.right_sample_sum += self.wave.generate_sample(); }
+        if self.noise_right_enable { self.right_sample_sum += self.noise.generate_sample(); }
         
         self.sample_count += 1;
         self.clock_count += 1.0;
