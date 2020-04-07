@@ -107,7 +107,7 @@ impl MemoryHandler for PPU {
                 self.obj_size = value & (1 << 2) != 0;
                 self.obj_enable = value & (1 << 1) != 0;
                 self.bg_priority = value & (1 << 0) != 0;
-                self.lcd_was_off = !old_lcd_enable && self.lcd_enable;
+                self.lcd_was_off = !old_lcd_enable && self.lcd_enable && false; // Add full support later
                 if self.lcd_was_off {
                     self.mode = 0;
                     self.clock_num = 7;
@@ -319,22 +319,50 @@ impl PPU {
     }
 
     fn render_line(&mut self) {
+        fn bg_window_tiles_select_1(tile_num: u8) -> usize { (0x900u16.wrapping_add(tile_num as i8 as u16) << 4) as usize }
+        fn bg_window_tiles_select_0(tile_num: u8) -> usize { 0x8000 + ((tile_num as usize) << 4) }
         self.hblank_clock = 254 + self.scroll_x as u16 % 8;
         let bg_map_offset: u16 = if self.bg_map_select { 0x9C00 } else { 0x9800 };
-        let y = self.y_coord.wrapping_add(self.scroll_y) as u16;
+        let window_map_offset: u16 = if self.window_map_select { 0x9C00 } else { 0x9800 };
+        let get_bg_window_tile = if self.bg_window_tiles_select {
+            bg_window_tiles_select_0
+        } else { bg_window_tiles_select_1 };
+        let ofsetted_y = self.y_coord.wrapping_add(self.scroll_y) as u16;
         self.current_sprite_i = 0;
         for x in 0u8..160u8 {
+            let pixel_index = 3 * ((Screen::HEIGHT - 1 - self.y_coord as u32) * Screen::WIDTH + x as u32) as usize;
+
+            // Window
+            if self.window_enable && self.y_coord >= self.window_y && x + 7 >= self.window_x {
+                let offsetted_x = x + 7 - self.window_x;
+                let ofsetted_y = (self.y_coord - self.window_y) as u16;
+                let map_x = offsetted_x / 8u8 % 32;
+                let window_map_addr = window_map_offset + (ofsetted_y / 8 * 32) + map_x as u16;
+                let tile_num = self.vram[window_map_addr as usize - 0x8000];
+                let tile_addr = get_bg_window_tile(tile_num);
+                let tile_addr = tile_addr + 2 * (ofsetted_y as usize % 8);
+                let tile_highs: u8 = self.vram[tile_addr - 0x8000];
+                let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
+                let tile_x: u8 = offsetted_x % 8;
+                let high = (tile_highs >> (7 - tile_x)) & 0x1;
+                let low = (tile_lows >> (7 - tile_x)) & 0x1;
+                let window_color = (high << 1 | low) as usize;
+                for i in 0..3 {
+                    self.screen.pixels[pixel_index + i] = PPU::SHADES[window_color][i];
+                }
+                continue;
+            }
+
             // BG
-            let map_x = x.wrapping_add(self.scroll_x) / 8u8 % 32;
-            let bg_map_addr = bg_map_offset + (y / 8 * 32) + map_x as u16;
+            let offsetted_x = x.wrapping_add(self.scroll_x);
+            let map_x = offsetted_x / 8u8 % 32;
+            let bg_map_addr = bg_map_offset + (ofsetted_y / 8 * 32) + map_x as u16;
             let tile_num = self.vram[bg_map_addr as usize - 0x8000];
-            let tile_addr = if self.bg_window_tiles_select {
-                0x8000 + ((tile_num as usize) << 4)
-            } else { (0x900u16.wrapping_add(tile_num as i8 as u16) << 4) as usize};
-            let tile_addr = tile_addr + 2 * (y as usize % 8);
+            let tile_addr = get_bg_window_tile(tile_num);
+            let tile_addr = tile_addr + 2 * (ofsetted_y as usize % 8);
             let tile_highs: u8 = self.vram[tile_addr - 0x8000];
             let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
-            let tile_x: u8 = x.wrapping_add(self.scroll_x) % 8;
+            let tile_x: u8 = offsetted_x % 8;
             let high = (tile_highs >> (7 - tile_x)) & 0x1;
             let low = (tile_lows >> (7 - tile_x)) & 0x1;
             let bg_color = (high << 1 | low) as usize;
@@ -379,13 +407,13 @@ impl PPU {
                 } else { break }
             }
 
-            let pixel_index = 3 * ((Screen::HEIGHT - 1 - self.y_coord as u32) * Screen::WIDTH + x as u32) as usize;
+            let shade = if obj_shade != 0 {
+                PPU::SHADES[obj_shade]
+            } else {
+                PPU::SHADES[self.bg_palette[bg_color]]
+            };
             for i in 0..3 {
-                self.screen.pixels[pixel_index + i] = if obj_shade != 0 {
-                    PPU::SHADES[obj_shade][i]
-                } else {
-                    PPU::SHADES[self.bg_palette[bg_color]][i]
-                };
+                self.screen.pixels[pixel_index + i] = shade[i];
             }
         }
     }
