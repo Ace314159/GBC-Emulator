@@ -27,7 +27,7 @@ impl Envelope {
 
     pub fn emulate_clock(&mut self) {
         if !self.done && self.period != 0 {
-            self.counter -= 1;
+            self.counter = self.counter.wrapping_sub(1);
             if self.counter == 0 {
                 if self.inc {
                     if self.volume < 15 { self.volume += 1; }
