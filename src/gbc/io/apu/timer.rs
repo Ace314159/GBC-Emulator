@@ -10,11 +10,11 @@ impl Timer {
     }
 
     pub fn clock(&mut self, reload: u16) -> bool {
+        self.counter -= 1;
         if self.counter == 0 {
             self.counter = reload;
             true
         } else {
-            self.counter -= 1;
             false
         }
     }

@@ -89,6 +89,7 @@ impl Channel for Tone {
 
     fn clock_envelope(&mut self) {
         if !self.envelope_done && self.envelope_period != 0 {
+            self.envelope_counter -= 1;
             if self.envelope_counter == 0 {
                 if self.inc_envelope {
                     if self.volume < 15 { self.volume += 1; }
@@ -98,7 +99,7 @@ impl Channel for Tone {
                     else { self.envelope_done = true }
                 }
                 self.envelope_counter = self.envelope_period;
-            } else { self.envelope_counter -= 1 }
+            }
         }
     }
 
