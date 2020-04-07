@@ -126,6 +126,8 @@ impl IO {
                     Event::Quit {..} => {
                         self.should_close = true;
                     },
+                    // Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::LCtrl), .. } => { self.ppu._rendering_map = true },
+                    // Event::KeyUp { keycode: Some(sdl2::keyboard::Keycode::LCtrl), .. } => { self.ppu._rendering_map = false },
                     Event::KeyDown {..} => { keyboard_events.push(event) },
                     Event::KeyUp {..} => { keyboard_events.push(event) },
                     _ => {},

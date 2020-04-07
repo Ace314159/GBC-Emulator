@@ -14,7 +14,7 @@ pub struct Screen {
 
     _screen_tex: u32,
     fbo: u32,
-    pub pixels: [u8; 3 * Screen::WIDTH as usize * Screen::HEIGHT as usize],
+    pub pixels: Vec<u8>,
 }
 
 impl Screen {
@@ -72,7 +72,7 @@ impl Screen {
             _screen_tex: screen_tex,
             fbo,
             window,
-            pixels: [0; 3 * Screen::WIDTH as usize * Screen::HEIGHT as usize],
+            pixels: vec![0; 3 * Screen::WIDTH as usize * Screen::HEIGHT as usize],
         }
     }
 

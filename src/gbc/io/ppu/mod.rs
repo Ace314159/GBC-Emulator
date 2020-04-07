@@ -59,6 +59,7 @@ pub struct PPU {
     vram: [u8; 0x2000],
     pub oam: [u8; 0xA0],
     screen: Screen,
+    // pub _rendering_map: bool,
 }
 
 impl MemoryHandler for PPU {
@@ -202,6 +203,7 @@ impl PPU {
             vram: [0; 0x2000],
             oam: [0; 0xA0],
             screen: Screen::new(sdl_ctx),
+            // _rendering_map: false,
         }
     }
 
@@ -265,6 +267,7 @@ impl PPU {
         } else { // VBlank
             if self.y_coord == 144 && self.clock_num == 2 {
                 self.mode = 1;
+                // if self._rendering_map { self._render_map(); }
                 self.screen.render();
                 interrupt = IO::VBLANK_INT;
             }
@@ -319,6 +322,7 @@ impl PPU {
     }
 
     fn render_line(&mut self) {
+        // if self._rendering_map { return }
         fn bg_window_tiles_select_1(tile_num: u8) -> usize { (0x900u16.wrapping_add(tile_num as i8 as u16) << 4) as usize }
         fn bg_window_tiles_select_0(tile_num: u8) -> usize { 0x8000 + ((tile_num as usize) << 4) }
         self.hblank_clock = 254 + self.scroll_x as u16 % 8;
@@ -348,7 +352,7 @@ impl PPU {
                 let low = (tile_lows >> (7 - tile_x)) & 0x1;
                 let window_color = (high << 1 | low) as usize;
                 for i in 0..3 {
-                    self.screen.pixels[pixel_index + i] = PPU::SHADES[window_color][i];
+                    self.screen.pixels[pixel_index + i] = PPU::SHADES[self.bg_palette[window_color]][i];
                 }
                 continue;
             }
