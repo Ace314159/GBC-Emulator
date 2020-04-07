@@ -211,9 +211,9 @@ impl APU {
         self.clock_count += 1.0;
 
         if self.clock_count as f32 >= APU::CLOCKS_PER_SAMPLE {
-            let mut left_sample = self.left_sample_sum / self.sample_count as f32;
+            let mut left_sample = self.left_sample_sum / self.sample_count as f32 / 7.5 - 1.0;
             left_sample *= (self.left_volume + 1) as f32;
-            let mut right_sample = self.right_sample_sum / self.sample_count as f32;
+            let mut right_sample = self.right_sample_sum / self.sample_count as f32 / 7.5 - 1.0;
             right_sample *= (self.right_volume + 1) as f32;
             self.audio.queue(APU::VOLUME_FACTOR * left_sample, APU::VOLUME_FACTOR * right_sample);
             self.left_sample_sum = 0.0;
@@ -224,7 +224,7 @@ impl APU {
     }
 
     const CLOCKS_PER_SAMPLE: f32 = GBC::CLOCK_SPEED as f32 / Audio::SAMPLE_RATE as f32;
-    const VOLUME_FACTOR: f32 = 2e-3;
+    const VOLUME_FACTOR: f32 = 5e-3;
 }
 
 trait Channel {
