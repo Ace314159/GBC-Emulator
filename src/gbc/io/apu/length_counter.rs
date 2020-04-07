@@ -12,17 +12,18 @@ impl LengthCounter {
     }
 
     pub fn clock(&mut self) {
-        if self.length > 0 {
+        if self.length != 0 {
             self.length -= 1;
-        }
+        } else { self.enabled = false }
     }
 
     pub fn reload(&mut self, value: u8) {
         self.length = value;
     }
 
-    pub fn enable(&mut self) {
+    pub fn enable(&mut self, reload: u8) {
         self.enabled = true;
+        if self.length == 0 { self.length = reload; }
     }
 
     pub fn enabled(&self) -> bool {

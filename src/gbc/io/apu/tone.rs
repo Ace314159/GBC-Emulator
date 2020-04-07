@@ -11,7 +11,7 @@ pub struct Tone {
     length_reload: u8, // 6 bit
     initial_volume: u8, // 4 bit
     inc_envelope: bool,
-    envelope_num: u8, // 3 bit
+    envelope_period: u8, // 3 bit
     pub freq: u16, // 11 bit
     use_length: bool,
     
@@ -20,8 +20,8 @@ pub struct Tone {
     duty_pos: usize,
     length_counter: LengthCounter,
     volume: u8,
-    envelope_counter: u32,
-    envelope_sweep_counter: u8,
+    envelope_counter: u8,
+    envelope_done: bool,
 }
 
 impl MemoryHandler for Tone {
@@ -30,7 +30,7 @@ impl MemoryHandler for Tone {
 
         match addr {
             0xFF16 => shift!(wave_duty, 6) | 0x1F,
-            0xFF17 => shift!(initial_volume, 4) | shift!(inc_envelope, 3) | self.envelope_num,
+            0xFF17 => shift!(initial_volume, 4) | shift!(inc_envelope, 3) | self.envelope_period,
             0xFF18 => 0xFF,
             0xFF19 => 0xBF | shift!(use_length, 6),
             _ => panic!("Unexpected Address for "),
@@ -46,22 +46,22 @@ impl MemoryHandler for Tone {
             },
             0xFF17 => {
                 self.initial_volume = value >> 4;
-                self.volume = self.initial_volume;
                 self.inc_envelope = value & 0x8 != 0;
-                self.envelope_num = value & 0x7;
-                self.envelope_counter = 0x4000;
-                self.envelope_sweep_counter = self.envelope_num;
+                self.envelope_period = value & 0x7;
+                self.volume = self.initial_volume;
+                self.envelope_counter = self.envelope_period;
             },
             0xFF18 => {
                 self.freq = self.freq & !0xFF | value as u16;
             }
             0xFF19 => {
                 if value & 0x80 != 0 {
-                    self.length_counter.reload(self.length_reload);
-                    self.length_counter.enable();
+                    self.length_counter.enable(64);
                     self.timer.reload(2048 - self.freq);
-                    self.duty_pos = 0;
+                    self.envelope_counter = self.envelope_period;
+                    self.envelope_done = false;
                     self.volume = self.initial_volume;
+                    self.duty_pos = 0;
                 }
                 self.use_length = value & 0x40 != 0;
                 self.freq = self.freq & !0x700 | (value as u16 & 0x7) << 8;
@@ -89,15 +89,17 @@ impl Channel for Tone {
     }
 
     fn clock_envelope(&mut self) {
-        if self.envelope_sweep_counter > 0 {
-            self.envelope_sweep_counter -= 1;
-            if self.inc_envelope {
-                if self.volume < 15 { self.volume += 1; }
-                else { self.envelope_sweep_counter = 0 }
-            } else {
-                if self.volume > 0 { self.volume -= 1 }
-                else { self.envelope_sweep_counter = 0 }
-            }
+        if !self.envelope_done {
+            if self.envelope_counter == 0 {
+                if self.inc_envelope {
+                    if self.volume < 15 { self.volume += 1; }
+                    else { self.envelope_done = true }
+                } else {
+                    if self.volume > 0 { self.volume -= 1 }
+                    else { self.envelope_done = true }
+                }
+                self.envelope_counter = self.envelope_period;
+            } else { self.envelope_counter -= 1 }
         }
     }
 
@@ -114,11 +116,11 @@ impl Channel for Tone {
 }
 
 impl Tone {
-    const DUTY_CYCLES: [[u8; 8]; 4] = [
-        [0, 0, 0, 0, 0, 0, 0, 1],
-        [1, 0, 0, 0, 0, 0, 0, 1],
-        [1, 0, 0, 0, 0, 1, 1, 1],
-        [0, 1, 1, 1, 1, 1, 1, 0],
+    const DUTY_CYCLES: [[i8; 8]; 4] = [
+        [-1, -1, -1, -1, -1, -1, -1, 1],
+        [1, -1, -1, -1, -1, -1, -1, 1],
+        [1, -1, -1, -1, -1, 1, 1, 1],
+        [-1, 1, 1, 1, 1, 1, 1, -1],
     ];
 
     pub fn new() -> Self {
@@ -128,7 +130,7 @@ impl Tone {
             length_reload: 0,
             initial_volume: 0,
             inc_envelope: false,
-            envelope_num: 0,
+            envelope_period: 0,
             freq: 0,
             
             // Sample Generation
@@ -138,7 +140,7 @@ impl Tone {
             length_counter: LengthCounter::new(),
             volume: 0,
             envelope_counter: 0,
-            envelope_sweep_counter: 0,
+            envelope_done: true,
         }
     }
 }
