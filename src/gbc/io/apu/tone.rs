@@ -32,7 +32,7 @@ impl MemoryHandler for Tone {
             0xFF17 => shift!(initial_volume, 4) | shift!(inc_envelope, 3) | self.envelope_period,
             0xFF18 => 0xFF,
             0xFF19 => 0xBF | shift!(use_length, 6),
-            _ => panic!("Unexpected Address for "),
+            _ => panic!("Unexpected Address for Tone"),
         }
     }
 
@@ -50,9 +50,7 @@ impl MemoryHandler for Tone {
                 self.volume = self.initial_volume;
                 self.envelope_counter = self.envelope_period;
             },
-            0xFF18 => {
-                self.freq = self.freq & !0xFF | value as u16;
-            }
+            0xFF18 => self.freq = self.freq & !0xFF | value as u16,
             0xFF19 => {
                 if value & 0x80 != 0 {
                     self.length_counter.enable(64);
@@ -65,7 +63,7 @@ impl MemoryHandler for Tone {
                 self.use_length = value & 0x40 != 0;
                 self.freq = self.freq & !0x700 | (value as u16 & 0x7) << 8;
             }
-            _ => {},
+            _ => panic!("Unexpected Address for Tone"),
         }
     }
 }
