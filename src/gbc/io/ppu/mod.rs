@@ -207,7 +207,8 @@ impl PPU {
         }
     }
 
-    const SHADES: [[u8; 3]; 4] = [[175, 203, 70], [121, 170, 109], [34, 111, 95], [8, 41, 85]];
+    // const SHADES: [[u8; 3]; 4] = [[175, 203, 70], [121, 170, 109], [34, 111, 95], [8, 41, 85]];
+    const SHADES: [[u8; 3]; 4] = [[0xA4, 0xC5, 0x05], [0x88, 0xA9, 0x05], [0x1D, 0x55, 0x1D], [0x05, 0x25, 0x05]];
 
     pub fn emulate_clock(&mut self) -> u8 {
         let mut interrupt = 0;
