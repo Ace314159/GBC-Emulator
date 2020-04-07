@@ -2,6 +2,7 @@ extern crate gl;
 
 use sdl2::video::{GLContext, Window, GLProfile, SwapInterval};
 use super::super::super::GBC;
+use super::super::sdl2::sys;
 
 use std::time::{SystemTime, Duration};
 pub struct Screen {
@@ -98,7 +99,7 @@ impl Screen {
                 tex_x, tex_y, width - tex_x, height - tex_y, gl::COLOR_BUFFER_BIT, gl::NEAREST);
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
         }
-        
+
         while SystemTime::now().duration_since(self.prev_frame_time).unwrap() < Screen::FRAME_PERIOD {}
         self.window.gl_swap_window();
         self.prev_frame_time = SystemTime::now();
@@ -108,7 +109,8 @@ impl Screen {
         let time_passed = cur_time.duration_since(self.prev_fps_update_time).unwrap().as_secs_f64();
         if time_passed >= 1.0 {
             let fps = self.frames_passed as f64 / time_passed;
-            self.window.set_title(&format!("GBC Emulator - {:.2} FPS", fps)).unwrap();
+            let audio_latency = unsafe { sys::SDL_GetQueuedAudioSize(2) } as f32 / 8.0 / 44100.0;
+            self.window.set_title(&format!("GBC Emulator - {:.2} FPS {:.4}", fps, audio_latency)).unwrap();
             self.frames_passed = 0;
             self.prev_fps_update_time = cur_time;
         }
