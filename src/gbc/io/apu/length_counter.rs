@@ -1,5 +1,5 @@
 pub struct LengthCounter {
-    length: u8,
+    length: u16,
     enabled: bool,
 }
 
@@ -12,16 +12,17 @@ impl LengthCounter {
     }
 
     pub fn clock(&mut self) {
-        if self.length != 0 {
+        if self.enabled && self.length != 0 {
             self.length -= 1;
-        } else { self.enabled = false }
+            if self.length == 0 { self.enabled = false }
+        }
     }
 
-    pub fn reload(&mut self, value: u8) {
+    pub fn reload(&mut self, value: u16) {
         self.length = value;
     }
 
-    pub fn enable(&mut self, reload: u8) {
+    pub fn enable(&mut self, reload: u16) {
         self.enabled = true;
         if self.length == 0 { self.length = reload; }
     }

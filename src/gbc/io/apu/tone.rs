@@ -4,7 +4,6 @@ use super::Channel;
 use super::timer::Timer;
 use super::length_counter::LengthCounter;
 
-
 pub struct Tone {
     // Registers
     wave_duty: u8, // 2 bit
@@ -41,8 +40,8 @@ impl MemoryHandler for Tone {
         match addr {
             0xFF16 => {
                 self.wave_duty = value >> 6;
-                self.length_reload = value & 0x1F;
-                self.length_counter.reload(64 - self.length_reload);
+                self.length_reload = value & 0x3F;
+                self.length_counter.reload(64 - self.length_reload as u16);
             },
             0xFF17 => {
                 self.initial_volume = value >> 4;
@@ -89,7 +88,7 @@ impl Channel for Tone {
     }
 
     fn clock_envelope(&mut self) {
-        if !self.envelope_done {
+        if !self.envelope_done && self.envelope_period != 0 {
             if self.envelope_counter == 0 {
                 if self.inc_envelope {
                     if self.volume < 15 { self.volume += 1; }
@@ -106,8 +105,7 @@ impl Channel for Tone {
     fn generate_sample(&self) -> f32 {
         if self.length_counter.enabled() {
             self.volume as f32 * Tone::DUTY_CYCLES[self.wave_duty as usize][self.duty_pos] as f32
-        }
-        else { 0.0 }
+        } else { 0.0 }
     }
 
     fn playing_sound(&self) -> bool {
