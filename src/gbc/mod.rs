@@ -13,22 +13,15 @@ pub struct GBC {
 
 impl GBC {
     pub fn new(rom_file: &String) -> Self {
-        let mut rom = fs::read(rom_file).unwrap();
-        let mut boot_rom = fs::read("DMG_ROM.bin").unwrap();
-        
-        let boot_rom_len = boot_rom.len();
-        assert_eq!(boot_rom_len, 0x100);
-        unsafe {
-            let x= boot_rom[..boot_rom_len].as_mut_ptr() as *mut [u8; 0x100];
-            let y = rom[..boot_rom_len].as_mut_ptr() as *mut[u8; 0x100];
-            std::ptr::swap(x, y);
-        }
+        // Stores boot rom and swapped portions of game rom
+        let mut boot_rom = fs::read("CGB_ROM.bin").unwrap();
 
         let mut gbc = GBC {
             cpu: CPU::new(),
-            io: IO::new(rom),
+            io: IO::new(fs::read(rom_file).unwrap()),
         };
 
+        gbc.io.swap_boot_rom(&mut boot_rom);
         gbc.cpu.emulate_boot_rom(&mut gbc.io);
         gbc.io.swap_boot_rom(&mut boot_rom);
 

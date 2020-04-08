@@ -140,10 +140,16 @@ impl IO {
 
     pub fn swap_boot_rom(&mut self, boot_rom: &mut Vec<u8>) {
         let boot_rom_len = boot_rom.len();
-        assert_eq!(boot_rom_len, 0x100);
+        assert_eq!(boot_rom_len, 0x900);
+
+        let rom = self.mbc.get_boot_rom_ptr();
+        let boot_rom_a = boot_rom[..0x100].as_mut_ptr() as *mut [u8; 0x100];
+        let boot_rom_b = boot_rom[0x200..0x900].as_mut_ptr() as *mut [u8; 0x700];
         unsafe {
-            let x = boot_rom[..boot_rom_len].as_mut_ptr() as *mut [u8; 0x100];
-            std::ptr::swap(x, self.mbc.get_boot_rom_ptr());
+            let rom_a = (*rom)[..0x100].as_mut_ptr() as *mut [u8; 0x100];
+            let rom_b = (*rom)[0x200..0x900].as_mut_ptr() as *mut [u8; 0x700];
+            std::ptr::swap(rom_a, boot_rom_a);
+            std::ptr::swap(rom_b, boot_rom_b);
         }
     }
 

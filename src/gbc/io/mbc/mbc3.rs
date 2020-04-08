@@ -102,8 +102,8 @@ impl MemoryHandler for MBC3 {
 }
 
 impl MemoryBankController for MBC3 {
-    fn get_boot_rom_ptr(&mut self) -> *mut [u8; 0x100] {
-        self.rom[..0x100].as_mut_ptr() as *mut [u8; 0x100]
+    fn get_boot_rom_ptr(&mut self) -> *mut [u8; 0x900] {
+        self.rom[..0x900].as_mut_ptr() as *mut [u8; 0x900]
     }
 
     fn emulate_clock(&mut self) {

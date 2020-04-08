@@ -7,7 +7,7 @@ use super::MemoryHandler;
 use super::Header;
 
 pub trait MemoryBankController: MemoryHandler {
-    fn get_boot_rom_ptr(&mut self) -> *mut [u8; 0x100];
+    fn get_boot_rom_ptr(&mut self) -> *mut [u8; 0x900];
     fn emulate_clock(&mut self);
 }
 
