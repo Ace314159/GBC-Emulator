@@ -33,7 +33,7 @@ impl MBC1 {
             is_ram_banking: false,
             external_ram: vec![0; ram_size],
 
-            has_ram,
+            has_ram: has_ram && ram_size > 0,
             _has_battery: has_battery,
         }
     }

@@ -47,7 +47,7 @@ impl MBC3 {
             rtc_counter: 0,
 
             has_timer,
-            has_ram,
+            has_ram: has_ram && ram_size > 0,
             _has_battery: has_battery,
         }
     }
