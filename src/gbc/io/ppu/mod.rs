@@ -60,6 +60,8 @@ pub struct PPU {
     pub oam: [u8; 0xA0],
     screen: Screen,
     // pub _rendering_map: bool,
+
+    in_cgb: bool,
 }
 
 impl MemoryHandler for PPU {
@@ -147,7 +149,7 @@ impl MemoryHandler for PPU {
 }
 
 impl PPU {
-    pub fn new(sdl_ctx: &sdl2::Sdl) -> Self {
+    pub fn new(sdl_ctx: &sdl2::Sdl, in_cgb: bool) -> Self {
         PPU {
             // Registers
             // Control
@@ -204,6 +206,8 @@ impl PPU {
             oam: [0; 0xA0],
             screen: Screen::new(sdl_ctx),
             // _rendering_map: false,
+
+            in_cgb,
         }
     }
 
@@ -233,6 +237,10 @@ impl PPU {
         self.prev_stat_signal = stat_signal;
 
         interrupt
+    }
+
+    pub fn set_double_speed(&mut self, double_speed: bool) {
+        self.screen.set_double_speed(double_speed);
     }
 
     fn render_clock(&mut self) -> u8 {

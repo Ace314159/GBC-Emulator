@@ -1,7 +1,7 @@
 extern crate gl;
 
 use sdl2::video::{GLContext, Window, GLProfile, SwapInterval};
-use super::super::super::GBC;
+use super::IO;
 use super::super::sdl2::sys;
 
 use std::time::{SystemTime, Duration};
@@ -15,13 +15,15 @@ pub struct Screen {
     _screen_tex: u32,
     fbo: u32,
     pub pixels: Vec<u8>,
+    frame_period: Duration,
 }
 
 impl Screen {
     pub const WIDTH: u32 = 160;
     pub const HEIGHT: u32 = 144;
     const SCALE: u32 = 3;
-    const FRAME_PERIOD: Duration = Duration::from_nanos(1e9 as u64 * 114 * 154 / GBC::CLOCK_SPEED as u64);
+    const GBC_FRAME_PERIOD: Duration = Duration::from_nanos(1e9 as u64 * 114 * 154 / IO::GBC_CLOCK_SPEED as u64);
+    const GB_FRAME_PERIOD: Duration = Duration::from_nanos(1e9 as u64 * 114 * 154 / IO::GB_CLOCK_SPEED as u64);
 
     pub fn new(sdl_ctx: &sdl2::Sdl) -> Self {
         let video_subsystem = sdl_ctx.video().unwrap();
@@ -73,6 +75,7 @@ impl Screen {
             fbo,
             window,
             pixels: vec![0; 3 * Screen::WIDTH as usize * Screen::HEIGHT as usize],
+            frame_period: Screen::GB_FRAME_PERIOD,
         }
     }
 
@@ -100,7 +103,7 @@ impl Screen {
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
         }
 
-        while SystemTime::now().duration_since(self.prev_frame_time).unwrap() < Screen::FRAME_PERIOD {}
+        while SystemTime::now().duration_since(self.prev_frame_time).unwrap() < self.frame_period {}
         self.window.gl_swap_window();
         self.prev_frame_time = SystemTime::now();
 
@@ -114,6 +117,14 @@ impl Screen {
             self.frames_passed = 0;
             self.prev_fps_update_time = cur_time;
         }
+    }
+
+    pub fn set_double_speed(&mut self, double_speed: bool) {
+        self.frame_period = if double_speed {
+            Screen::GBC_FRAME_PERIOD
+        } else {
+            Screen::GB_FRAME_PERIOD
+        };
     }
 }
 

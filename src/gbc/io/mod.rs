@@ -39,6 +39,10 @@ pub struct IO {
     pub int_flags: u8,
     unusable: Unusable,
 
+    in_cgb: bool,
+    double_speed: bool,
+    prepare_speed_switch: bool,
+
     // Other
     pub sdl_ctx: sdl2::Sdl,
     pub c: u128,
@@ -48,11 +52,12 @@ pub struct IO {
 impl IO {
     pub fn new(rom: Vec<u8>) -> Self {
         let header = Header::new(&rom);
+        let in_cgb = header.in_cgb();
         let sdl_ctx = sdl2::init().unwrap();
 
         IO {
             mbc: mbc::get_mbc(header, rom),
-            ppu: PPU::new(&sdl_ctx),
+            ppu: PPU::new(&sdl_ctx, in_cgb),
             apu: APU::new(&sdl_ctx),
             wram: RAM::new(0xC000, 0xDFFF),
             serial: Serial::new(),
@@ -62,6 +67,10 @@ impl IO {
             hram: RAM::new(0xFF80, 0xFFFE),
             int_flags: 0,
             unusable: Unusable {},
+
+            in_cgb,
+            double_speed: false,
+            prepare_speed_switch: false,
 
             sdl_ctx,
             c: 8,
@@ -83,6 +92,7 @@ impl IO {
             0xFF0F => self.int_flags,
             0xFF10 ..= 0xFF26 => self.apu.read(addr),
             0xFF40 ..= 0xFF4B => self.ppu.read(addr),
+            0xFF4D => if self.in_cgb { 0x7E | (self.double_speed as u8) << 7 | self.prepare_speed_switch as u8 } else { 0xFF },
             0xFF80 ..= 0xFFFE => self.hram.read(addr),
             0xFFFF => self.int_enable,
             _ => self.unusable.read(addr),
@@ -103,6 +113,7 @@ impl IO {
             0xFF0F => self.int_flags = value | 0xE0,
             0xFF10 ..= 0xFF26 => self.apu.write(addr, value),
             0xFF40 ..= 0xFF4B => self.ppu.write(addr, value),
+            0xFF4D => if self.in_cgb { self.prepare_speed_switch = value & 0x1 != 0 }
             0xFF80 ..= 0xFFFE => self.hram.write(addr, value),
             0xFFFF => self.int_enable = value,
             _ => self.unusable.write(addr, value),
@@ -135,6 +146,18 @@ impl IO {
                 }
             }
             self.int_flags |= self.joypad.update_inputs(&keyboard_events);
+        }
+    }
+    
+    pub fn stop(&mut self) {
+        if self.in_cgb && self.prepare_speed_switch {
+            self.prepare_speed_switch = false;
+            self.double_speed = !self.double_speed;
+            self.ppu.set_double_speed(self.double_speed);
+            self.apu.set_double_speed(self.double_speed);
+            for _ in 0..(128 * 1024 - 75) {
+                self.emulate_machine_cycle();
+            }
         }
     }
 
@@ -174,6 +197,9 @@ impl IO {
     pub const TIMER_INT: u8 = 1 << 2;
     pub const _SERIAL_INT: u8 = 1 << 3;
     pub const JOYPAD_INT: u8 = 1 << 4;
+
+    const GB_CLOCK_SPEED: u32 = 4194304 / 4;
+    const GBC_CLOCK_SPEED: u32 = 8388608 / 4;
 }
 
 struct Unusable;

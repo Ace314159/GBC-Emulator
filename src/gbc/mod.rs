@@ -35,6 +35,4 @@ impl GBC {
     pub fn is_running(&self) -> bool {
         !self.io.should_close
     }
-
-    const CLOCK_SPEED: u32 = 4194304 / 4;
 }

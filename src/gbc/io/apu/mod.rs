@@ -14,7 +14,7 @@ use tone::Tone;
 use wave::Wave;
 use noise::Noise;
 use audio::Audio;
-use super::super::GBC;
+use super::IO;
 
 pub struct APU {
     // Registers
@@ -48,6 +48,7 @@ pub struct APU {
     right_sample_sum: f32,
     sample_count: u32,
     clock_count: f32,
+    clocks_per_sample: f32,
 }
 
 impl MemoryHandler for APU {
@@ -147,6 +148,7 @@ impl APU {
             right_sample_sum: 0.0,
             sample_count: 0,
             clock_count: 0.0,
+            clocks_per_sample: APU::GB_CLOCKS_PER_SAMPLE,
         }
     }
 
@@ -160,6 +162,14 @@ impl APU {
         self.emulate_frame_counter();
         
         self.generate_sample();
+    }
+
+    pub fn set_double_speed(&mut self, double_speed: bool) {
+        self.clocks_per_sample = if double_speed {
+            APU::GBC_CLOCKS_PER_SAMPLE
+        } else {
+            APU::GB_CLOCKS_PER_SAMPLE
+        };
     }
 
     fn emulate_frame_counter(&mut self) {
@@ -210,7 +220,7 @@ impl APU {
         self.sample_count += 1;
         self.clock_count += 1.0;
 
-        if self.clock_count as f32 >= APU::CLOCKS_PER_SAMPLE {
+        if self.clock_count as f32 >= self.clocks_per_sample {
             let mut left_sample = self.left_sample_sum / self.sample_count as f32 / 7.5 - 1.0;
             left_sample *= (self.left_volume + 1) as f32;
             let mut right_sample = self.right_sample_sum / self.sample_count as f32 / 7.5 - 1.0;
@@ -219,11 +229,12 @@ impl APU {
             self.left_sample_sum = 0.0;
             self.right_sample_sum = 0.0;
             self.sample_count = 0;
-            self.clock_count -= APU::CLOCKS_PER_SAMPLE;
+            self.clock_count -= self.clocks_per_sample;
         }
     }
 
-    const CLOCKS_PER_SAMPLE: f32 = GBC::CLOCK_SPEED as f32 / Audio::SAMPLE_RATE as f32;
+    const GBC_CLOCKS_PER_SAMPLE: f32 = IO::GBC_CLOCK_SPEED as f32 / Audio::SAMPLE_RATE as f32;
+    const GB_CLOCKS_PER_SAMPLE: f32 = IO::GB_CLOCK_SPEED as f32 / Audio::SAMPLE_RATE as f32;
     const VOLUME_FACTOR: f32 = 5e-3;
 }
 

@@ -311,7 +311,7 @@ impl CPU {
             0x37 => self.scf(),
             0x00 => {}, // NOP
             0x76 => self.halt(io),
-            0x10 => { /*println!("STOP Called")*/ }, // STOP
+            0x10 => { io.stop(); },
             0xF3 => { self.prev_ime = false; self.ime = false; },
             0xFB => { self.ime = true; /* Interrupt not handled until next instruction */ },
             
