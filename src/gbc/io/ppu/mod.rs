@@ -108,7 +108,7 @@ impl MemoryHandler for PPU {
                 self.obj_size = value & (1 << 2) != 0;
                 self.obj_enable = value & (1 << 1) != 0;
                 self.bg_priority = value & (1 << 0) != 0;
-                self.lcd_was_off = !old_lcd_enable && self.lcd_enable && false; // Add full support later
+                self.lcd_was_off = !old_lcd_enable && self.lcd_enable; // TODO: Add full support later
                 if self.lcd_was_off {
                     self.mode = 0;
                     self.clock_num = 7;

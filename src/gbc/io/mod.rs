@@ -51,7 +51,7 @@ impl IO {
         let sdl_ctx = sdl2::init().unwrap();
 
         IO {
-            mbc: mbc::get_mbc(header.get_cartridge_type(), rom),
+            mbc: mbc::get_mbc(header, rom),
             ppu: PPU::new(&sdl_ctx),
             apu: APU::new(&sdl_ctx),
             wram: RAM::new(0xC000, 0xDFFF),

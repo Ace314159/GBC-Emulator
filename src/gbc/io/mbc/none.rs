@@ -1,12 +1,13 @@
 use super::MemoryBankController;
 use super::MemoryHandler;
+use super::Header;
 
 pub struct None {
     rom: Vec<u8>,
 }
 
 impl None {
-    pub fn new(rom: Vec<u8>) -> Self {
+    pub fn new(_header: Header, rom: Vec<u8>) -> Self {
         None {
             rom,
         }
