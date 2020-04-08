@@ -42,4 +42,6 @@ impl MemoryBankController for None {
     fn get_boot_rom_ptr(&mut self) -> *mut [u8; 0x100] {
         self.rom[..0x100].as_mut_ptr() as *mut [u8; 0x100]
     }
+
+    fn emulate_clock(&mut self) {}
 }

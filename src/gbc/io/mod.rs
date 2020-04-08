@@ -118,6 +118,7 @@ impl IO {
         self.int_flags |= self.ppu.emulate_clock();
         self.int_flags |= self.ppu.emulate_clock();
         self.apu.emulate_clock();
+        self.mbc.emulate_clock();
 
         if self.c % 10000 == 0 {
             let mut keyboard_events: Vec<Event> = Vec::new();
