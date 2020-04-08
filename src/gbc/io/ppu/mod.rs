@@ -373,10 +373,10 @@ impl PPU {
             let low = (tile_lows >> (7 - tile_x)) & 0x1;
             let bg_color = (high << 1 | low) as usize;
 
+            let mut final_shade: usize = self.bg_palette[bg_color];
             // Sprite
-            let mut obj_shade = 0;
             let mut i = self.current_sprite_i;
-            while i < self.visible_sprite_count && obj_shade == 0 {
+            while i < self.visible_sprite_count {
                 let sprite_x: u8 = self.visible_sprites[i * 4 + 1];
                 if x + 8 >= sprite_x {
                     if x < sprite_x {
@@ -405,21 +405,24 @@ impl PPU {
     
                         let obj_priority = attrs & 0x80 != 0;
                         let palette_num = (attrs & 0x10 != 0) as usize;
-                        let shade = self.obj_palettes[palette_num][(high << 1 | low) as usize];
-                        if !obj_priority || bg_color == 0 { obj_shade = shade; }
+                        let obj_color = (high << 1 | low) as usize;
+                        if obj_color != 0 {
+                            let obj_shade = self.obj_palettes[palette_num][obj_color];
+                            if obj_priority {
+                                if bg_color == 0 {
+                                    final_shade = obj_shade;
+                                }
+                            } else { final_shade = obj_shade }
+                            break;
+                        }
                     }
                     if x + 1 == sprite_x { self.current_sprite_i += 1 }
                     i += 1;
                 } else { break }
             }
 
-            let shade = if obj_shade != 0 {
-                PPU::SHADES[obj_shade]
-            } else {
-                PPU::SHADES[self.bg_palette[bg_color]]
-            };
             for i in 0..3 {
-                self.screen.pixels[pixel_index + i] = shade[i];
+                self.screen.pixels[pixel_index + i] = PPU::SHADES[final_shade][i];
             }
         }
     }
