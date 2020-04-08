@@ -387,7 +387,7 @@ impl PPU {
                         let tile_addr = (0x8000 | (tile_num as u16) << 4) as usize;
     
                         let tile_addr = if flip_y {
-                            tile_addr + 2 * (sprite_y - self.y_coord - 1 - 8) as usize
+                            tile_addr + 2 * (sprite_y - self.y_coord - 1) as usize
                         } else {
                             tile_addr + 2 * (15 - (sprite_y - self.y_coord - 1)) as usize
                         };
