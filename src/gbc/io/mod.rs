@@ -17,10 +17,11 @@ use apu::APU;
 use ppu::PPU;
 use ppu::CgbPPU;
 use ppu::GbPPU;
-use ram::RAM;
+use ram::WRAM;
 use serial::Serial;
 use joypad::Joypad;
 use timer::Timer;
+use ram::HRAM;
 
 pub trait MemoryHandler {
     fn read(&self, addr: u16) -> u8;
@@ -32,12 +33,12 @@ pub struct IO {
     mbc: Box<dyn MemoryBankController>,
     apu: APU,
     ppu: Box<dyn PPU>,
-    wram: RAM,
+    wram: WRAM,
     serial: Serial,
     joypad: Joypad,
     timer: Timer,
     pub int_enable: u8,
-    hram: RAM,
+    hram: HRAM,
     pub int_flags: u8,
     unusable: Unusable,
 
@@ -61,12 +62,12 @@ impl IO {
             mbc: mbc::get_mbc(header, rom),
             ppu: if in_cgb { Box::new(CgbPPU::new(&sdl_ctx)) } else { Box::new(GbPPU::new(&sdl_ctx)) },
             apu: APU::new(&sdl_ctx),
-            wram: RAM::new(0xC000, 0xDFFF),
+            wram: WRAM::new(if in_cgb { 8 } else { 0 }),
             serial: Serial::new(),
             joypad: Joypad::new(),
             timer: Timer::new(),
             int_enable: 0,
-            hram: RAM::new(0xFF80, 0xFFFE),
+            hram: HRAM::new(),
             int_flags: 0,
             unusable: Unusable {},
 
@@ -97,6 +98,7 @@ impl IO {
             0xFF4D => if self.in_cgb { 0x7E | (self.double_speed as u8) << 7 | self.prepare_speed_switch as u8 } else { 0xFF },
             0xFF4F => self.ppu.read_vram_bank(),
             0xFF68 ..= 0xFF6B => self.ppu.read_cgb_palettes(addr),
+            0xFF70 => self.wram.read_bank(),
             0xFF80 ..= 0xFFFE => self.hram.read(addr),
             0xFFFF => self.int_enable,
             _ => self.unusable.read(addr),
@@ -121,6 +123,7 @@ impl IO {
             0xFF4F => self.ppu.write_vram_bank(value),
             0xFF51 ..= 0xFF55 => self.ppu.write_hdma(addr, value),
             0xFF68 ..= 0xFF6B => self.ppu.write_cgb_palettes(addr, value),
+            0xFF70 => self.wram.write_bank(value),
             0xFF80 ..= 0xFFFE => self.hram.write(addr, value),
             0xFFFF => self.int_enable = value,
             _ => self.unusable.write(addr, value),
