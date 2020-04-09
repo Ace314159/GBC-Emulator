@@ -389,10 +389,12 @@ impl CgbPPU {
         let mut interrupt = 0;
         if self.y_coord < 144 && self.y_coord_inc != 0 {
             if self.lcd_was_off { // Special timing for first scanline when LCD is just turned on
+                self.hblank_clock = 255 + self.scroll_x as u16 % 8;
                 if self.clock_num == 84 {
                     self.mode = 3;
-                }  else if self.clock_num == 256 {
+                }  else if self.clock_num == self.hblank_clock {
                     self.mode = 0;
+                    if self.enable_hblank_int { self.hblank_int = true; }
                 }
             } else {
                 if self.clock_num < 80 { // OAM Scan
@@ -477,7 +479,7 @@ impl CgbPPU {
         // if self._rendering_map { return }
         fn bg_window_tiles_select_1(tile_num: u8) -> usize { (0x900u16.wrapping_add(tile_num as i8 as u16) << 4) as usize }
         fn bg_window_tiles_select_0(tile_num: u8) -> usize { 0x8000 + ((tile_num as usize) << 4) }
-        self.hblank_clock = 254 + self.scroll_x as u16 % 8;
+        self.hblank_clock = 260 + self.scroll_x as u16 % 8;
         let bg_map_offset: u16 = if self.bg_map_select { 0x9C00 } else { 0x9800 };
         let window_map_offset: u16 = if self.window_map_select { 0x9C00 } else { 0x9800 };
         let get_bg_window_tile = if self.bg_window_tiles_select {
@@ -500,10 +502,6 @@ impl CgbPPU {
                 let map_x = offsetted_x / 8u8 % 32;
                 (offsetted_x, offsetted_y, bg_map_offset + (offsetted_y / 8 * 32) + map_x as u16)
             };
-
-            if map_addr == 0x98E2 {
-                print!("");
-            }
 
             let attrs = self.vram[1][map_addr as usize - 0x8000];
             let bg_palette_num = attrs as usize & 0x7;
@@ -533,6 +531,9 @@ impl CgbPPU {
                     let sprite_x: u8 = self.visible_sprites[i * 4 + 1];
                     if x + 8 >= sprite_x {
                         if x < sprite_x {
+                            if x == sprite_x + 1 {
+                                self.hblank_clock += 11 - std::cmp::min(5, (sprite_x + self.scroll_x) % 8) as u16;
+                            }
                             let sprite_y: u8 = self.visible_sprites[i * 4];
                             let tile_num: u8 = self.visible_sprites[i * 4 + 2];
                             let attrs: u8 = self.visible_sprites[i * 4 + 3];

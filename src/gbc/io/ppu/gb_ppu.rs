@@ -280,6 +280,7 @@ impl GbPPU {
         let mut interrupt = 0;
         if self.y_coord < 144 && self.y_coord_inc != 0 {
             if self.lcd_was_off { // Special timing for first scanline when LCD is just turned on
+                self.hblank_clock = 255 + self.scroll_x as u16 % 8;
                 if self.clock_num == 84 {
                     self.mode = 3;
                 }  else if self.clock_num == 256 {
