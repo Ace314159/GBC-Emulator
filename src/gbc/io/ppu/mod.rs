@@ -30,8 +30,16 @@ pub struct PPU {
     window_y: u8,
     window_x: u8,
     // Palettes
+    // Non-CGB
     bg_palette: [usize; 4],
     obj_palettes: [[usize; 4]; 2],
+    // CGB
+    cgb_bg_palette_index: u8,
+    cgb_bg_palette_auto_inc: bool,
+    cgb_bg_palettes: [[[u8; 2]; 4]; 8],
+    cgb_obj_palette_index: u8,
+    cgb_obj_palette_auto_inc: bool,
+    cgb_obj_palettes: [[[u8; 2]; 4]; 8],
     // OAM DMA
     pub oam_dma_page: u8,
     
@@ -81,13 +89,13 @@ impl MemoryHandler for PPU {
             0xFF44 => self.y_coord,
             0xFF45 => self.y_coord_comp,
             0xFF46 => self.oam_dma_page,
-            0xFF47 => if self.mode != 3 {
+            0xFF47 => if self.mode != 3 && !self.in_cgb {
                 self.bg_palette.iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 )
             } else { 0xFF },
-            0xFF48 => if self.mode != 3 {
+            0xFF48 => if self.mode != 3 && !self.in_cgb {
                 self.obj_palettes[0].iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 )
             } else { 0xFF },
-            0xFF49 => if self.mode != 3 {
+            0xFF49 => if self.mode != 3 && !self.in_cgb {
                 self.obj_palettes[1].iter().rev().fold(0, |acc, x| (acc << 2) | *x as u8 )
             } else { 0xFF },
             0xFF4A => self.window_y,
@@ -138,9 +146,12 @@ impl MemoryHandler for PPU {
                 }
             },
             0xFF46 => { self.oam_dma_page = value; self.in_oam_dma = true; self.oam_dma_clock = 0; },
-            0xFF47 => if self.mode != 3 { for i in 0..4 { self.bg_palette[i] = (value as usize >> 2 * i) & 0x3; } },
-            0xFF48 => if self.mode != 3 { for i in 0..4 { self.obj_palettes[0][i] = (value as usize >> 2 * i) & 0x3; } },
-            0xFF49 => if self.mode != 3 { for i in 0..4 { self.obj_palettes[1][i] = (value as usize >> 2 * i) & 0x3; } },
+            0xFF47 => if self.mode != 3 && !self.in_cgb {
+                for i in 0..4 { self.bg_palette[i] = (value as usize >> 2 * i) & 0x3; } },
+            0xFF48 => if self.mode != 3 && !self.in_cgb {
+                for i in 0..4 { self.obj_palettes[0][i] = (value as usize >> 2 * i) & 0x3; } },
+            0xFF49 => if self.mode != 3 && !self.in_cgb {
+                for i in 0..4 { self.obj_palettes[1][i] = (value as usize >> 2 * i) & 0x3; } },
             0xFF4A => self.window_y = value,
             0xFF4B => self.window_x = value,
             _ => panic!("Unexpected Address for PPU!"),
@@ -176,8 +187,16 @@ impl PPU {
             window_y: 0,
             window_x: 0,
             // Palettes
+            // Non-CGB
             bg_palette: [0, 1, 2, 3],
             obj_palettes: [[0, 1, 2, 3], [0, 1, 2, 3]],
+            // CGB
+            cgb_bg_palette_index: 0,
+            cgb_bg_palette_auto_inc: false,
+            cgb_bg_palettes: [[[0; 2]; 4]; 8],
+            cgb_obj_palette_index: 0,
+            cgb_obj_palette_auto_inc: false,
+            cgb_obj_palettes: [[[0; 2]; 4]; 8],
             // OAM DMA
             oam_dma_page: 0,
 
@@ -237,6 +256,52 @@ impl PPU {
         self.prev_stat_signal = stat_signal;
 
         interrupt
+    }
+
+    pub fn read_cgb_palettes(&self, addr: u16) -> u8 {
+        if self.mode != 3 { return 0xFF }
+        let cgb_bg_palettes;
+        let cgb_obj_palettes;
+        unsafe {
+            cgb_bg_palettes = *(self.cgb_bg_palettes.as_ptr() as *const [u8; 0x3F]);
+            cgb_obj_palettes = *(self.cgb_obj_palettes.as_ptr() as *const [u8; 0x3F]);
+        }
+        match addr {
+            0xFF68 => self.cgb_bg_palette_index | (self.cgb_bg_palette_auto_inc as u8) << 7,
+            0xFF69 => cgb_bg_palettes[self.cgb_bg_palette_index as usize],
+            0xFF6A => self.cgb_obj_palette_index | (self.cgb_obj_palette_auto_inc as u8) << 7,
+            0xFF6B => cgb_obj_palettes[self.cgb_obj_palette_index as usize],
+            _ => panic!("Unexpected Address for PPU!"),
+        }
+    }
+
+    pub fn write_cgb_palettes(&mut self, addr: u16, value: u8) {
+        if self.mode != 3 { return }
+        let mut cgb_bg_palettes;
+        let mut cgb_obj_palettes;
+        unsafe {
+            cgb_bg_palettes = *(self.cgb_bg_palettes.as_ptr() as *mut [u8; 0x3F]);
+            cgb_obj_palettes = *(self.cgb_obj_palettes.as_ptr() as *mut [u8; 0x3F]);
+        }
+        match addr {
+            0xFF68 => {
+                self.cgb_bg_palette_index = value & 0x3F;
+                self.cgb_bg_palette_auto_inc = value & 0x80 != 0;
+            },
+            0xFF69 => {
+                let value = if self.cgb_bg_palette_index % 2 == 1 { value & 0x7F } else { value };
+                cgb_bg_palettes[self.cgb_bg_palette_index as usize] = value;
+            },
+            0xFF6A => {
+                self.cgb_obj_palette_index = value & 0x3F;
+                self.cgb_obj_palette_auto_inc = value & 0x80 != 0;
+            },
+            0xFF6B => {
+                let value = if self.cgb_obj_palette_index % 2 == 1 { value & 0x7F } else { value };
+                cgb_obj_palettes[self.cgb_obj_palette_index as usize] = value;
+            },
+            _ => panic!("Unexpected Address for PPU!"),
+        }
     }
 
     pub fn set_double_speed(&mut self, double_speed: bool) {

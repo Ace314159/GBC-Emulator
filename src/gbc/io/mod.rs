@@ -93,6 +93,7 @@ impl IO {
             0xFF10 ..= 0xFF26 => self.apu.read(addr),
             0xFF40 ..= 0xFF4B => self.ppu.read(addr),
             0xFF4D => if self.in_cgb { 0x7E | (self.double_speed as u8) << 7 | self.prepare_speed_switch as u8 } else { 0xFF },
+            0xFF68 ..= 0xFF6B => if self.in_cgb { self.ppu.read_cgb_palettes(addr) } else { 0xFF },
             0xFF80 ..= 0xFFFE => self.hram.read(addr),
             0xFFFF => self.int_enable,
             _ => self.unusable.read(addr),
@@ -114,6 +115,7 @@ impl IO {
             0xFF10 ..= 0xFF26 => self.apu.write(addr, value),
             0xFF40 ..= 0xFF4B => self.ppu.write(addr, value),
             0xFF4D => if self.in_cgb { self.prepare_speed_switch = value & 0x1 != 0 }
+            0xFF68 ..= 0xFF6B => if self.in_cgb { self.ppu.write_cgb_palettes(addr, value) },
             0xFF80 ..= 0xFFFE => self.hram.write(addr, value),
             0xFFFF => self.int_enable = value,
             _ => self.unusable.write(addr, value),
