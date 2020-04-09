@@ -60,7 +60,7 @@ impl MemoryHandler for MBC3 {
             0x4000 => self.rom[self.rom_bank * 0x4000 + (addr - 0x4000) as usize],
             0x8000 => if self.ram_enable {
                 if self.ram_bank <= 0x3 && self.has_ram {
-                    self.external_ram[self.ram_bank * 0x2000 + (addr as usize - 0xA000)]
+                    self.external_ram[(self.ram_bank & self.ram_mask) * 0x2000 + (addr as usize - 0xA000)]
                 } else if self.ram_bank >= 0x8 && self.ram_bank <= 0xC && self.has_timer {
                     self.latched_rtc_registers[self.ram_bank - 0x8]
                 } else { 0xFF }
@@ -77,7 +77,7 @@ impl MemoryHandler for MBC3 {
                 if bank == 0 { bank = 1; };
                 self.rom_bank = bank & self.rom_mask;
             },
-            0x4000 => self.ram_bank = (value as usize) & self.ram_mask,
+            0x4000 => self.ram_bank = value as usize,
             0x6000 => if self.ram_enable && self.has_timer {
                 let new_latch_clock_data = value & 0x1 != 0;
                 if !self.latch_clock_data && new_latch_clock_data {
@@ -89,7 +89,7 @@ impl MemoryHandler for MBC3 {
             },
             0xA000 => if self.ram_enable {
                 if self.ram_bank <= 0x3 && self.has_ram {
-                    self.external_ram[self.ram_bank * 0x2000 + (addr as usize - 0xA000)] = value;
+                    self.external_ram[(self.ram_bank & self.ram_mask) * 0x2000 + (addr as usize - 0xA000)] = value;
                 } else if self.ram_bank >= 0x8 && self.ram_bank <= 0xC && self.has_timer {
                     self.rtc_registers[self.ram_bank - 0x8] = value;
 
