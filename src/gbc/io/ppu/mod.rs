@@ -406,39 +406,28 @@ impl PPU {
         let get_bg_window_tile = if self.bg_window_tiles_select {
             bg_window_tiles_select_0
         } else { bg_window_tiles_select_1 };
-        let ofsetted_y = self.y_coord.wrapping_add(self.scroll_y) as u16;
+        let offsetted_y = self.y_coord.wrapping_add(self.scroll_y) as u16;
         self.current_sprite_i = 0;
         for x in 0u8..160u8 {
             let pixel_index = 3 * ((Screen::HEIGHT - 1 - self.y_coord as u32) * Screen::WIDTH + x as u32) as usize;
 
-            // Window
-            if self.window_enable && self.y_coord >= self.window_y && x + 7 >= self.window_x {
-                let offsetted_x = x + 7 - self.window_x;
-                let ofsetted_y = (self.y_coord - self.window_y) as u16;
-                let map_x = offsetted_x / 8u8 % 32;
-                let window_map_addr = window_map_offset + (ofsetted_y / 8 * 32) + map_x as u16;
-                let tile_num = self.vram[window_map_addr as usize - 0x8000];
-                let tile_addr = get_bg_window_tile(tile_num);
-                let tile_addr = tile_addr + 2 * (ofsetted_y as usize % 8);
-                let tile_highs: u8 = self.vram[tile_addr - 0x8000];
-                let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
-                let tile_x: u8 = offsetted_x % 8;
-                let high = (tile_highs >> (7 - tile_x)) & 0x1;
-                let low = (tile_lows >> (7 - tile_x)) & 0x1;
-                let window_color = (high << 1 | low) as usize;
-                for i in 0..3 {
-                    self.screen.pixels[pixel_index + i] = PPU::SHADES[self.bg_palette[window_color]][i];
-                }
-                continue;
-            }
+            let is_window_pixel = self.window_enable && self.y_coord >= self.window_y && x + 7 >= self.window_x;
 
-            // BG
-            let offsetted_x = x.wrapping_add(self.scroll_x);
-            let map_x = offsetted_x / 8u8 % 32;
-            let bg_map_addr = bg_map_offset + (ofsetted_y / 8 * 32) + map_x as u16;
-            let tile_num = self.vram[bg_map_addr as usize - 0x8000];
+            let (offsetted_x, offsetted_y, map_addr) = if is_window_pixel { // Window
+                let offsetted_x = x + 7 - self.window_x;
+                let offsetted_y = (self.y_coord - self.window_y) as u16;
+                let map_x = offsetted_x / 8u8 % 32;
+                (offsetted_x, offsetted_y, window_map_offset + (offsetted_y / 8 * 32) + map_x as u16)
+            } else { // BG
+                let offsetted_x = x.wrapping_add(self.scroll_x);
+                let map_x = offsetted_x / 8u8 % 32;
+                (offsetted_x, offsetted_y, bg_map_offset + (offsetted_y / 8 * 32) + map_x as u16)
+            };
+
+            // BG or Window
+            let tile_num = self.vram[map_addr as usize - 0x8000];
             let tile_addr = get_bg_window_tile(tile_num);
-            let tile_addr = tile_addr + 2 * (ofsetted_y as usize % 8);
+            let tile_addr = tile_addr + 2 * (offsetted_y as usize % 8);
             let tile_highs: u8 = self.vram[tile_addr - 0x8000];
             let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
             let tile_x: u8 = offsetted_x % 8;
@@ -447,51 +436,53 @@ impl PPU {
             let bg_color = (high << 1 | low) as usize;
 
             let mut final_shade: usize = self.bg_palette[bg_color];
-            // Sprite
-            let mut i = self.current_sprite_i;
-            while i < self.visible_sprite_count {
-                let sprite_x: u8 = self.visible_sprites[i * 4 + 1];
-                if x + 8 >= sprite_x {
-                    if x < sprite_x {
-                        let sprite_y: u8 = self.visible_sprites[i * 4];
-                        let tile_num: u8 = self.visible_sprites[i * 4 + 2];
-                        let attrs: u8 = self.visible_sprites[i * 4 + 3];
-                        let flip_y = attrs & 0x40 != 0;
-                        let flip_x = attrs & 0x20 != 0;
-                        let tile_addr = (0x8000 | (tile_num as u16) << 4) as usize;
-    
-                        let tile_addr = if flip_y {
-                            tile_addr + 2 * (sprite_y - self.y_coord - 1) as usize
-                        } else {
-                            tile_addr + 2 * (15 - (sprite_y - self.y_coord - 1)) as usize
-                        };
-                        
-                        let tile_highs: u8 = self.vram[tile_addr - 0x8000];
-                        let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
-                        let tile_x = if flip_x {
-                            7 - (sprite_x - x - 1)
-                        } else {
-                            sprite_x - x - 1
-                        };
-                        let high = (tile_highs >> tile_x) & 0x1;
-                        let low = (tile_lows >> tile_x) & 0x1;
-    
-                        let obj_priority = attrs & 0x80 != 0;
-                        let palette_num = (attrs & 0x10 != 0) as usize;
-                        let obj_color = (high << 1 | low) as usize;
-                        if obj_color != 0 {
-                            let obj_shade = self.obj_palettes[palette_num][obj_color];
-                            if obj_priority {
-                                if bg_color == 0 {
-                                    final_shade = obj_shade;
-                                }
-                            } else { final_shade = obj_shade }
-                            break;
+            if !is_window_pixel {
+                // Sprite
+                let mut i = self.current_sprite_i;
+                while i < self.visible_sprite_count {
+                    let sprite_x: u8 = self.visible_sprites[i * 4 + 1];
+                    if x + 8 >= sprite_x {
+                        if x < sprite_x {
+                            let sprite_y: u8 = self.visible_sprites[i * 4];
+                            let tile_num: u8 = self.visible_sprites[i * 4 + 2];
+                            let attrs: u8 = self.visible_sprites[i * 4 + 3];
+                            let flip_y = attrs & 0x40 != 0;
+                            let flip_x = attrs & 0x20 != 0;
+                            let tile_addr = (0x8000 | (tile_num as u16) << 4) as usize;
+        
+                            let tile_addr = if flip_y {
+                                tile_addr + 2 * (sprite_y - self.y_coord - 1) as usize
+                            } else {
+                                tile_addr + 2 * (15 - (sprite_y - self.y_coord - 1)) as usize
+                            };
+                            
+                            let tile_highs: u8 = self.vram[tile_addr - 0x8000];
+                            let tile_lows: u8 = self.vram[tile_addr + 1 - 0x8000];
+                            let tile_x = if flip_x {
+                                7 - (sprite_x - x - 1)
+                            } else {
+                                sprite_x - x - 1
+                            };
+                            let high = (tile_highs >> tile_x) & 0x1;
+                            let low = (tile_lows >> tile_x) & 0x1;
+        
+                            let obj_priority = attrs & 0x80 != 0;
+                            let palette_num = (attrs & 0x10 != 0) as usize;
+                            let obj_color = (high << 1 | low) as usize;
+                            if obj_color != 0 {
+                                let obj_shade = self.obj_palettes[palette_num][obj_color];
+                                if obj_priority {
+                                    if bg_color == 0 {
+                                        final_shade = obj_shade;
+                                    }
+                                } else { final_shade = obj_shade }
+                                break;
+                            }
                         }
-                    }
-                    if x + 1 == sprite_x { self.current_sprite_i += 1 }
-                    i += 1;
-                } else { break }
+                        if x + 1 == sprite_x { self.current_sprite_i += 1 }
+                        i += 1;
+                    } else { break }
+                }
             }
 
             for i in 0..3 {
