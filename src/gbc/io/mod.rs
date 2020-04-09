@@ -15,6 +15,8 @@ use header::Header;
 use mbc::MemoryBankController;
 use apu::APU;
 use ppu::PPU;
+use ppu::CgbPPU;
+use ppu::GbPPU;
 use ram::RAM;
 use serial::Serial;
 use joypad::Joypad;
@@ -29,7 +31,7 @@ pub struct IO {
     // IO Devices
     mbc: Box<dyn MemoryBankController>,
     apu: APU,
-    ppu: PPU,
+    ppu: Box<dyn PPU>,
     wram: RAM,
     serial: Serial,
     joypad: Joypad,
@@ -57,7 +59,7 @@ impl IO {
 
         IO {
             mbc: mbc::get_mbc(header, rom),
-            ppu: PPU::new(&sdl_ctx, in_cgb),
+            ppu: if in_cgb { Box::new(CgbPPU::new(&sdl_ctx)) } else { Box::new(GbPPU::new(&sdl_ctx)) },
             apu: APU::new(&sdl_ctx),
             wram: RAM::new(0xC000, 0xDFFF),
             serial: Serial::new(),
@@ -93,7 +95,8 @@ impl IO {
             0xFF10 ..= 0xFF26 => self.apu.read(addr),
             0xFF40 ..= 0xFF4B => self.ppu.read(addr),
             0xFF4D => if self.in_cgb { 0x7E | (self.double_speed as u8) << 7 | self.prepare_speed_switch as u8 } else { 0xFF },
-            0xFF68 ..= 0xFF6B => if self.in_cgb { self.ppu.read_cgb_palettes(addr) } else { 0xFF },
+            0xFF4F => self.ppu.read_vram_bank(),
+            0xFF68 ..= 0xFF6B => self.ppu.read_cgb_palettes(addr),
             0xFF80 ..= 0xFFFE => self.hram.read(addr),
             0xFFFF => self.int_enable,
             _ => self.unusable.read(addr),
@@ -114,8 +117,10 @@ impl IO {
             0xFF0F => self.int_flags = value | 0xE0,
             0xFF10 ..= 0xFF26 => self.apu.write(addr, value),
             0xFF40 ..= 0xFF4B => self.ppu.write(addr, value),
-            0xFF4D => if self.in_cgb { self.prepare_speed_switch = value & 0x1 != 0 }
-            0xFF68 ..= 0xFF6B => if self.in_cgb { self.ppu.write_cgb_palettes(addr, value) },
+            0xFF4D => self.prepare_speed_switch = value & 0x1 != 0,
+            0xFF4F => self.ppu.write_vram_bank(value),
+            0xFF51 ..= 0xFF55 => self.ppu.write_hdma(addr, value),
+            0xFF68 ..= 0xFF6B => self.ppu.write_cgb_palettes(addr, value),
             0xFF80 ..= 0xFFFE => self.hram.write(addr, value),
             0xFFFF => self.int_enable = value,
             _ => self.unusable.write(addr, value),
@@ -130,6 +135,7 @@ impl IO {
         self.int_flags |= self.ppu.emulate_clock();
         self.int_flags |= self.ppu.emulate_clock();
         self.int_flags |= self.ppu.emulate_clock();
+        self.gdma();
         self.apu.emulate_clock();
         self.mbc.emulate_clock();
 
@@ -179,19 +185,14 @@ impl IO {
     }
 
     fn oam_dma(&mut self) {
-        if !self.ppu.in_oam_dma { return }
-        if self.ppu.oam_dma_clock < 160 {
-            self.ppu.disable_oam = true;
-            let cpu_addr = (self.ppu.oam_dma_page as u16) << 8 | (self.ppu.oam_dma_clock);
-            self.ppu.oam[(self.ppu.oam_dma_clock) as usize] = self.read(cpu_addr);
+        let (should_write, oam_addr, cpu_addr)  = self.ppu.oam_dma();
+        if should_write {
+            self.ppu.oam_write(oam_addr, self.read(cpu_addr));
         }
+    }
 
-        self.ppu.oam_dma_clock += 1;
-        if self.ppu.oam_dma_clock == 160 + 2 {
-            self.ppu.in_oam_dma = false;
-            self.ppu.disable_oam = false;
-            self.ppu.oam_dma_clock = 0;
-        }
+    fn gdma(&mut self) {
+
     }
 
     pub const VBLANK_INT: u8 = 1;
