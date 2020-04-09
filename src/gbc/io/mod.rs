@@ -45,6 +45,7 @@ pub struct IO {
     in_cgb: bool,
     double_speed: bool,
     prepare_speed_switch: bool,
+    in_gdma: bool,
 
     // Other
     pub sdl_ctx: sdl2::Sdl,
@@ -74,6 +75,7 @@ impl IO {
             in_cgb,
             double_speed: false,
             prepare_speed_switch: false,
+            in_gdma: false,
 
             sdl_ctx,
             c: 8,
@@ -121,7 +123,7 @@ impl IO {
             0xFF40 ..= 0xFF4B => self.ppu.write(addr, value),
             0xFF4D => self.prepare_speed_switch = value & 0x1 != 0,
             0xFF4F => self.ppu.write_vram_bank(value),
-            0xFF51 ..= 0xFF55 => self.ppu.write_hdma(addr, value),
+            0xFF51 ..= 0xFF55 => self.ppu.write_hdma(addr, value, self.double_speed),
             0xFF68 ..= 0xFF6B => self.ppu.write_cgb_palettes(addr, value),
             0xFF70 => self.wram.write_bank(value),
             0xFF80 ..= 0xFFFE => self.hram.write(addr, value),
@@ -134,11 +136,11 @@ impl IO {
         self.c += 4;
         self.int_flags |= self.timer.emulate();
         self.oam_dma();
-        self.int_flags |= self.ppu.emulate_clock();
-        self.int_flags |= self.ppu.emulate_clock();
-        self.int_flags |= self.ppu.emulate_clock();
-        self.int_flags |= self.ppu.emulate_clock();
         self.gdma();
+        self.int_flags |= self.ppu.emulate_clock();
+        self.int_flags |= self.ppu.emulate_clock();
+        self.int_flags |= self.ppu.emulate_clock();
+        self.int_flags |= self.ppu.emulate_clock();
         self.apu.emulate_clock();
         self.mbc.emulate_clock();
 
@@ -188,6 +190,7 @@ impl IO {
     }
 
     fn oam_dma(&mut self) {
+        if !self.ppu.in_oam_dma() { return }
         let (should_write, oam_addr, cpu_addr)  = self.ppu.oam_dma();
         if should_write {
             self.ppu.oam_write(oam_addr, self.read(cpu_addr));
@@ -195,7 +198,19 @@ impl IO {
     }
 
     fn gdma(&mut self) {
-
+        if self.in_gdma { return }
+        self.in_gdma = self.ppu.in_gdma();
+        while self.in_gdma {
+            let (should_write, cpu_addr, vram_addr) = self.ppu.gdma(self.double_speed);
+            if should_write {
+                self.write(vram_addr, self.read(cpu_addr));
+                if self.double_speed {
+                    self.write(vram_addr + 1, self.read(cpu_addr))
+                }
+            }
+            self.emulate_machine_cycle();
+            self.in_gdma = self.ppu.in_gdma();
+        }
     }
 
     pub const VBLANK_INT: u8 = 1;

@@ -175,9 +175,13 @@ impl PPU for GbPPU {
 
     fn write_vram_bank(&mut self, _value: u8) {}
     fn write_cgb_palettes(&mut self, _addr: u16, _value: u8) {}
-    fn write_hdma(&mut self, _addr: u16, _value: u8) {}
+    fn write_hdma(&mut self, _addr: u16, _value: u8, _double_speed: bool) {}
 
     fn set_double_speed(&mut self, _double_speed: bool) {}
+    
+    fn in_oam_dma(&self) -> bool {
+        self.in_oam_dma
+    }
 
     fn oam_dma(&mut self) -> (bool, u16, u16) {
         if !self.in_oam_dma { return (false, 0, 0) }
@@ -201,9 +205,8 @@ impl PPU for GbPPU {
         self.oam[addr as usize] = value;
     }
 
-    fn gdma(&mut self) {
-
-    }
+    fn in_gdma(&self) -> bool { false }
+    fn gdma(&mut self, _double_speed: bool) -> (bool, u16, u16) { (false, 0, 0) }
 }
 
 impl GbPPU {

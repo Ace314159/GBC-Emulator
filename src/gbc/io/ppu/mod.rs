@@ -15,12 +15,14 @@ pub trait PPU: MemoryHandler {
 
     fn write_vram_bank(&mut self, value: u8);
     fn write_cgb_palettes(&mut self, addr: u16, value: u8);
-    fn write_hdma(&mut self, addr: u16, value: u8);
+    fn write_hdma(&mut self, addr: u16, value: u8, double_speed: bool);
 
     fn set_double_speed(&mut self, double_speed: bool);
 
+    fn in_oam_dma(&self) -> bool;
     fn oam_dma(&mut self) -> (bool, u16, u16);
     fn oam_write(&mut self, addr: u16, value: u8);
 
-    fn gdma(&mut self);
+    fn in_gdma(&self) -> bool;
+    fn gdma(&mut self, double_speed: bool) -> (bool, u16, u16);
 }

@@ -36,14 +36,13 @@ pub struct CgbPPU {
     bg_colors: [[[u8; 3]; 4]; 8],
     obj_palette_i: u8,
     obj_palette_inc: bool,
-    cgb_obj_palettes: [u8; 0x40],
+    obj_palettes: [u8; 0x40],
     obj_colors: [[[u8; 3]; 4]; 8],
     // OAM DMA
     oam_dma_page: u8,
     // HDMA
     hdma_src: u16,
     hdma_dest: u16,
-    num_dma_blocks: u8,
     
     // Rendering
     // BG
@@ -56,7 +55,6 @@ pub struct CgbPPU {
     in_oam_dma: bool,
     oam_dma_clock: u16,
     disable_oam: bool,
-    in_gdma: bool,
     gdma_clock: u16,
     in_hdma: bool,
     hdma_clock: u16,
@@ -186,7 +184,7 @@ impl PPU for CgbPPU {
             0xFF68 => self.bg_palette_i | (self.bg_palette_inc as u8) << 7,
             0xFF69 => self.bg_palettes[self.bg_palette_i as usize],
             0xFF6A => self.obj_palette_i | (self.obj_palette_inc as u8) << 7,
-            0xFF6B => self.cgb_obj_palettes[self.obj_palette_i as usize],
+            0xFF6B => self.obj_palettes[self.obj_palette_i as usize],
             _ => panic!("Unexpected Address for PPU!"),
         }
     }
@@ -229,36 +227,38 @@ impl PPU for CgbPPU {
                 let palette_num = self.obj_palette_i as usize / 8;
                 let color_num = self.obj_palette_i as usize % 8 / 2;
                 let value = if self.obj_palette_i % 2 == 1 {
-                    let green = (value & 0x3) << 3 | self.cgb_obj_palettes[self.obj_palette_i as usize - 1] >> 5 & 0x7;
+                    let green = (value & 0x3) << 3 | self.obj_palettes[self.obj_palette_i as usize - 1] >> 5 & 0x7;
                     let blue = (value >> 2) & 0x1F;
                     self.obj_colors[palette_num][color_num][1] = ((green as u16) * 255 / 31) as u8;
                     self.obj_colors[palette_num][color_num][2] = ((blue as u16) * 255 / 31) as u8;
                     value
                 } else {
                     let red = value & 0x1F;
-                    let green = (self.cgb_obj_palettes[self.obj_palette_i as usize + 1] & 0x3) << 3 | value >> 5 & 0x7;
+                    let green = (self.obj_palettes[self.obj_palette_i as usize + 1] & 0x3) << 3 | value >> 5 & 0x7;
                     self.obj_colors[palette_num][color_num][0] = ((red as u16) * 255 / 31) as u8;
                     self.obj_colors[palette_num][color_num][1] = ((green as u16) * 255 / 31) as u8;
                     value
                 };
-                self.cgb_obj_palettes[self.obj_palette_i as usize] = value;
+                self.obj_palettes[self.obj_palette_i as usize] = value;
                 if self.obj_palette_inc { self.obj_palette_i = (self.obj_palette_i + 1) % 0x40 }
             },
             _ => panic!("Unexpected Address for PPU!"),
         }
     }
 
-    fn write_hdma(&mut self, addr: u16, value: u8) {
+    fn write_hdma(&mut self, addr: u16, value: u8, double_speed: bool) {
         match addr {
             0xFF51 => self.hdma_src = self.hdma_src & !0xFF00 | (value as u16) << 8,
             0xFF52 => self.hdma_src = self.hdma_src & !0x00FF | (value & 0x0F) as u16,
             0xFF53 => self.hdma_dest = self.hdma_dest & !0xFF00 | ((value & 0x1F) as u16) << 8,
-            0xFF54 => self.hdma_dest = self.hdma_dest & !0x00FF | (value & 0x0F) as u16,
+            0xFF54 => self.hdma_dest = self.hdma_dest & !0x00FF | (value & 0xF0) as u16,
             0xFF55 => if value & 0x80 != 0 {
                 self.in_hdma = true;
             } else {
-                self.in_gdma = true;
-                self.num_dma_blocks = (value & 0x7F) + 1;
+                let num_dma_blocks = (value & 0x7F) + 1;
+                self.hdma_src &= 0xFFF0;
+                self.hdma_dest &= 0x1FF0;
+                self.gdma_clock = 1 + num_dma_blocks as u16 * if double_speed { 16 } else { 8 };
             }
             _ => panic!("Unexpected Address for PPU!"),
         }
@@ -267,9 +267,12 @@ impl PPU for CgbPPU {
     fn set_double_speed(&mut self, double_speed: bool) {
         self.screen.set_double_speed(double_speed);
     }
+    
+    fn in_oam_dma(&self) -> bool {
+        self.in_oam_dma
+    }
 
     fn oam_dma(&mut self) -> (bool, u16, u16) {
-        if !self.in_oam_dma { return (false, 0, 0) }
         let should_write = self.oam_dma_clock < 160;
         let (oam_addr, cpu_addr) = if should_write {
             self.disable_oam = true;
@@ -290,17 +293,20 @@ impl PPU for CgbPPU {
         self.oam[addr as usize] = value;
     }
 
-    fn gdma(&mut self) {
-        if !self.in_gdma { return }
-        self.in_gdma = false;
-        /*let num_clocks = if self.double_speed {
-            16 * self.ppu.num_dma_blocks + 1
-        } else { 8 * self.ppu.num_dma_blocks + 1 };
+    fn in_gdma(&self) -> bool {
+        self.gdma_clock != 0
+    }
 
-        self.emulate_machine_cycle();
-        for i in 0..num_clocks {
-            
-        }*/
+    fn gdma(&mut self, double_speed: bool) -> (bool, u16, u16) {
+        self.gdma_clock -= 1;
+        if self.gdma_clock != 0 {
+            let inc = if double_speed { 1 } else { 2 };
+            let cpu_addr = self.hdma_src;
+            let vram_addr = 0x8000 | self.hdma_dest;
+            self.hdma_src += inc;
+            self.hdma_dest += inc;
+            (true, cpu_addr, vram_addr)
+        } else { (false, 0, 0) }
     }
 }
 
@@ -339,14 +345,13 @@ impl CgbPPU {
             bg_colors: [[[0; 3]; 4]; 8],
             obj_palette_i: 0,
             obj_palette_inc: false,
-            cgb_obj_palettes: [0; 0x40],
+            obj_palettes: [0; 0x40],
             obj_colors: [[[0; 3]; 4]; 8],
             // OAM DMA
             oam_dma_page: 0,
             // HDMA
             hdma_src: 0,
             hdma_dest: 0,
-            num_dma_blocks: 0,
 
             // Rendering
             // BG
@@ -359,7 +364,6 @@ impl CgbPPU {
             in_oam_dma: false,
             oam_dma_clock: 0,
             disable_oam: false,
-            in_gdma: false,
             gdma_clock: 0,
             in_hdma: false,
             hdma_clock: 0,
@@ -413,13 +417,13 @@ impl CgbPPU {
                 }
             }
         } else { // VBlank
-            if self.y_coord == 144 && self.clock_num == 2 {
+            if self.y_coord == 144 && self.clock_num == 4 {
                 self.mode = 1;
                 // if self._rendering_map { self._render_map(); }
                 self.screen.render();
                 interrupt = IO::VBLANK_INT;
             }
-            if self.y_coord == 153 && self.clock_num == 6 {
+            if self.y_coord == 153 && self.clock_num == 8 {
                 self.y_coord = 0;
                 self.y_coord_inc = 0;
             }
