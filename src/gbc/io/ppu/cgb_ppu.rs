@@ -76,7 +76,8 @@ pub struct CgbPPU {
     vram_bank: usize,
     pub oam: [u8; 0xA0],
     screen: Screen,
-    // pub _rendering_map: bool,
+    pub _rendering_map: bool,
+    _rendered_map: bool,
 }
 
 impl MemoryHandler for CgbPPU {
@@ -321,7 +322,7 @@ impl PPU for CgbPPU {
         } else { (false, 0, 0) }
     }
 
-    fn _rendering_map(&mut self, _rendering_map: bool) { /*self._rendering_map = _rendering_map*/ }
+    fn _rendering_map(&mut self, _rendering_map: bool) { self._rendering_map = _rendering_map }
 }
 
 impl CgbPPU {
@@ -399,7 +400,8 @@ impl CgbPPU {
             vram_bank: 0,
             oam: [0; 0xA0],
             screen: Screen::new(sdl_ctx),
-            // _rendering_map: false,
+            _rendering_map: false,
+            _rendered_map: false,
         }
     }
 
@@ -439,7 +441,7 @@ impl CgbPPU {
         } else { // VBlank
             if self.y_coord == 144 && self.clock_num == 4 {
                 self.mode = 1;
-                // if self._rendering_map { self._render_map(); }
+                if self._rendering_map { self._render_map(); }
                 self.screen.render();
                 interrupt = IO::VBLANK_INT;
             }
@@ -494,7 +496,8 @@ impl CgbPPU {
     }
 
     fn render_line(&mut self) {
-        // if self._rendering_map { return }
+        if self._rendering_map { return }
+        else if self._rendered_map {for i in self.screen.pixels.iter_mut() { *i = 0 }; self._rendered_map = false; }
         fn bg_window_tiles_select_1(tile_num: u8) -> usize { (0x900u16.wrapping_add(tile_num as i8 as u16) << 4) as usize }
         fn bg_window_tiles_select_0(tile_num: u8) -> usize { 0x8000 + ((tile_num as usize) << 4) }
         self.hblank_clock = 254 + self.scroll_x as u16 % 8;
@@ -625,5 +628,30 @@ impl CgbPPU {
                 }
             }
         }
+        self._rendered_map = true;
+    }
+
+    fn _render_tiles(&mut self) {
+        for y in 0u16..24u16 * 8 {
+            for x in 0u16..32u16 * 8 {
+                let tile_num = y / 8 * 16 + x / 8;
+                let tile_addr = 0x8000 + ((tile_num as usize) << 4);
+                let tile_addr = tile_addr + 2 * (y as usize % 8);
+                let vram_bank = (x >= 16 * 8) as usize;
+                let tile_highs: u8 = self.vram[vram_bank][tile_addr - 0x8000];
+                let tile_lows: u8 = self.vram[vram_bank][tile_addr + 1 - 0x8000];
+                let tile_x: u8 = x as u8 % 8;
+                let high = (tile_highs >> (7 - tile_x)) & 0x1;
+                let low = (tile_lows >> (7 - tile_x)) & 0x1;
+                let bg_color = (high << 1 | low) as usize;
+
+                let pixel_index = 3 * ((Screen::HEIGHT - 1 - y as u32) * Screen::WIDTH + x as u32) as usize;
+                let shades = [0xFF, 0xAA, 0x55, 0x00];
+                for i in 0..3 {
+                    self.screen.pixels[pixel_index + i] = shades[bg_color];
+                }
+            }
+        }
+        self._rendered_map = true;
     }
 }
