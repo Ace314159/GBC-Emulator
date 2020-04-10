@@ -29,6 +29,10 @@ pub struct CgbPPU {
     window_y: u8,
     window_x: u8,
     // Palettes
+    // Non-CGB
+    gb_bg_palette: u8,
+    gb_obj_palette0: u8,
+    gb_obj_palette1: u8,
     // CGB
     bg_palette_i: u8,
     bg_palette_inc: bool,
@@ -92,7 +96,9 @@ impl MemoryHandler for CgbPPU {
             0xFF44 => self.y_coord,
             0xFF45 => self.y_coord_comp,
             0xFF46 => self.oam_dma_page,
-            0xFF47 ..= 0xFF49 => { 0xFF }, // Non-CGB Palettes
+            0xFF47 => self.gb_bg_palette,
+            0xFF48 => self.gb_obj_palette0,
+            0xFF49 => self.gb_obj_palette1,
             0xFF4A => self.window_y,
             0xFF4B => self.window_x,
             _ => panic!("Unexpected Address for PPU!"),
@@ -141,7 +147,9 @@ impl MemoryHandler for CgbPPU {
                 }
             },
             0xFF46 => { self.oam_dma_page = value; self.in_oam_dma = true; self.oam_dma_clock = 0; },
-            0xFF47 ..= 0xFF49 => {}, // Non-CGB Palettes
+            0xFF47 => self.gb_bg_palette = value,
+            0xFF48 => self.gb_obj_palette0 = value,
+            0xFF49 => self.gb_obj_palette1 = value,
             0xFF4A => self.window_y = value,
             0xFF4B => self.window_x = value,
             _ => panic!("Unexpected Address for PPU!"),
@@ -338,6 +346,10 @@ impl CgbPPU {
             window_y: 0,
             window_x: 0,
             // Palettes
+            // Non-CGB
+            gb_bg_palette: 0xFF,
+            gb_obj_palette0: 0xFF,
+            gb_obj_palette1: 0xFF,
             // CGB
             bg_palette_i: 0,
             bg_palette_inc: false,
@@ -479,7 +491,7 @@ impl CgbPPU {
         // if self._rendering_map { return }
         fn bg_window_tiles_select_1(tile_num: u8) -> usize { (0x900u16.wrapping_add(tile_num as i8 as u16) << 4) as usize }
         fn bg_window_tiles_select_0(tile_num: u8) -> usize { 0x8000 + ((tile_num as usize) << 4) }
-        self.hblank_clock = 260 + self.scroll_x as u16 % 8;
+        self.hblank_clock = 254 + self.scroll_x as u16 % 8;
         let bg_map_offset: u16 = if self.bg_map_select { 0x9C00 } else { 0x9800 };
         let window_map_offset: u16 = if self.window_map_select { 0x9C00 } else { 0x9800 };
         let get_bg_window_tile = if self.bg_window_tiles_select {
