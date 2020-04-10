@@ -9,7 +9,9 @@ use super::IO;
 
 pub trait PPU: MemoryHandler {
     fn emulate_clock(&mut self) -> u8;
-    
+
+    fn set_screen_size(&mut self, width: i32, height: i32);
+
     fn read_vram_bank(&self) -> u8;
     fn read_cgb_palettes(&self, addr: u16) -> u8;
 
@@ -25,4 +27,6 @@ pub trait PPU: MemoryHandler {
 
     fn in_gdma(&self) -> bool;
     fn gdma(&mut self, double_speed: bool) -> (bool, u16, u16);
+
+    fn _rendering_map(&mut self, _rendering_map: bool);
 }

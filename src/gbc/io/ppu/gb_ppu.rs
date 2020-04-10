@@ -170,6 +170,10 @@ impl PPU for GbPPU {
         interrupt
     }
 
+    fn set_screen_size(&mut self, width: i32, height: i32) {
+        self.screen.set_screen_size(width, height);
+    }
+
     fn read_vram_bank(&self) -> u8 { 0xFF }
     fn read_cgb_palettes(&self, _addr: u16) -> u8 { 0xFF }
 
@@ -207,6 +211,7 @@ impl PPU for GbPPU {
 
     fn in_gdma(&self) -> bool { false }
     fn gdma(&mut self, _double_speed: bool) -> (bool, u16, u16) { (false, 0, 0) }
+    fn _rendering_map(&mut self, _rendering_map: bool) {}
 }
 
 impl GbPPU {

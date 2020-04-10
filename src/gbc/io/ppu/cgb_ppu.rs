@@ -182,6 +182,10 @@ impl PPU for CgbPPU {
         interrupt
     }
 
+    fn set_screen_size(&mut self, width: i32, height: i32) {
+        self.screen.set_screen_size(width, height);
+    }
+
     fn read_vram_bank(&self) -> u8 {
         (0xFE | self.vram_bank) as u8
     }
@@ -316,6 +320,8 @@ impl PPU for CgbPPU {
             (true, cpu_addr, vram_addr)
         } else { (false, 0, 0) }
     }
+
+    fn _rendering_map(&mut self, _rendering_map: bool) { /*self._rendering_map = _rendering_map*/ }
 }
 
 impl CgbPPU {
@@ -601,13 +607,13 @@ impl CgbPPU {
             for x in 0u16..32u16 * 8 {
                 let map_x = x / 8;
                 let bg_map_addr = bg_map_offset + (y / 8 * 32) + map_x as u16;
-                let tile_num = self.vram[1][bg_map_addr as usize - 0x8000];
+                let tile_num = self.vram[0][bg_map_addr as usize - 0x8000];
                 let tile_addr = if self.bg_window_tiles_select {
                     0x8000 + ((tile_num as usize) << 4)
                 } else { (0x900u16.wrapping_add(tile_num as i8 as u16) << 4) as usize};
                 let tile_addr = tile_addr + 2 * (y as usize % 8);
-                let tile_highs: u8 = self.vram[1][tile_addr - 0x8000];
-                let tile_lows: u8 = self.vram[1][tile_addr + 1 - 0x8000];
+                let tile_highs: u8 = self.vram[0][tile_addr - 0x8000];
+                let tile_lows: u8 = self.vram[0][tile_addr + 1 - 0x8000];
                 let tile_x: u8 = x as u8 % 8;
                 let high = (tile_highs >> (7 - tile_x)) & 0x1;
                 let low = (tile_lows >> (7 - tile_x)) & 0x1;

@@ -10,6 +10,7 @@ mod joypad;
 mod timer;
 
 use sdl2::event::Event;
+use sdl2::event::WindowEvent;
 
 use header::Header;
 use mbc::MemoryBankController;
@@ -151,8 +152,12 @@ impl IO {
                     Event::Quit {..} => {
                         self.should_close = true;
                     },
-                    // Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::LCtrl), .. } => { self.ppu._rendering_map = true },
-                    // Event::KeyUp { keycode: Some(sdl2::keyboard::Keycode::LCtrl), .. } => { self.ppu._rendering_map = false },
+                    Event::Window { win_event: WindowEvent::Resized(width, height), .. } => {
+                        self.ppu.set_screen_size(width, height)}
+                    Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::LCtrl), .. } => {
+                        self.ppu._rendering_map(true) },
+                    Event::KeyUp { keycode: Some(sdl2::keyboard::Keycode::LCtrl), .. } => {
+                        self.ppu._rendering_map(false) },
                     Event::KeyDown {..} => { keyboard_events.push(event) },
                     Event::KeyUp {..} => { keyboard_events.push(event) },
                     _ => {},

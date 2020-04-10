@@ -11,6 +11,8 @@ pub struct Screen {
     prev_frame_time: SystemTime,
     prev_fps_update_time: SystemTime,
     frames_passed: u32,
+    width: i32,
+    height: i32,
 
     _screen_tex: u32,
     fbo: u32,
@@ -32,9 +34,9 @@ impl Screen {
         gl_attr.set_context_profile(GLProfile::Core);
         gl_attr.set_context_version(3, 3);
 
-        let window = video_subsystem.window("GBC Emulator",
-                    Screen::WIDTH * Screen::SCALE, Screen::HEIGHT * Screen::SCALE)
-                    .opengl().build().unwrap();
+        let width = Screen::WIDTH * Screen::SCALE;
+        let height = Screen::HEIGHT * Screen::SCALE;
+        let window = video_subsystem.window("GBC Emulator", width, height).resizable().opengl().build().unwrap();
 
         let gl_ctx = window.gl_create_context().unwrap();
         gl::load_with(|name| video_subsystem.gl_get_proc_address(name) as *const _);
@@ -70,6 +72,8 @@ impl Screen {
             prev_frame_time: SystemTime::now(),
             prev_fps_update_time: SystemTime::now(),
             frames_passed: 0,
+            width: width as i32,
+            height: height as i32,
 
             _screen_tex: screen_tex,
             fbo,
@@ -79,27 +83,26 @@ impl Screen {
         }
     }
 
+    pub fn set_screen_size(&mut self, width: i32, height: i32) {
+        self.width = width;
+        self.height = height;
+    }
+
     pub fn render(&mut self) {
-        let width = (Screen::SCALE * Screen::WIDTH) as i32;
-        let height = (Screen::SCALE * Screen::HEIGHT) as i32;
-        let mut tex_x = 0i32;
-        let mut tex_y = 0i32;
-        if width * Screen::HEIGHT as i32 > height * Screen::WIDTH as i32 {
-            let scaled_width = (width as f32 / height as f32 * height as f32) as i32;
-            tex_x = (width - scaled_width) / 2;
-            tex_y = 0;
-        } else if (width * Screen::HEIGHT as i32) < (height * Screen::HEIGHT as i32) {
-            let scaled_height = (height as f32 / width as f32 * width as f32) as i32;
-            tex_x = 0;
-            tex_y = (height - scaled_height) / 2;
-        }
+        let (tex_x, tex_y) = if self.width * Screen::HEIGHT as i32 > self.height * Screen::WIDTH as i32 {
+            let scaled_width = (Screen::WIDTH as f32 / Screen::HEIGHT as f32 * self.height as f32) as i32;
+            ((self.width - scaled_width) / 2, 0)
+        } else if self.width * (Screen::HEIGHT as i32) < self.height * Screen::WIDTH as i32 {
+            let scaled_height = (Screen::HEIGHT as f32 / Screen::WIDTH as f32 * self.width as f32) as i32;
+            (0, (self.height - scaled_height) / 2)
+        } else { (0, 0) };
 
         unsafe {
             gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, Screen::WIDTH as i32, Screen::HEIGHT as i32,
                 gl::RGB, gl::UNSIGNED_BYTE, self.pixels.as_ptr() as *const std::ffi::c_void);
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo);
             gl::BlitFramebuffer(0, 0, Screen::WIDTH as i32, Screen::HEIGHT as i32,
-                tex_x, tex_y, width - tex_x, height - tex_y, gl::COLOR_BUFFER_BIT, gl::NEAREST);
+                tex_x, tex_y, self.width - tex_x, self.height - tex_y, gl::COLOR_BUFFER_BIT, gl::NEAREST);
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
         }
 
