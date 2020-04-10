@@ -33,7 +33,7 @@ impl MemoryHandler for WRAM {
         if addr < 0xD000 {
             self.mem[addr as usize - 0xC000]
         } else {
-            self.mem[self.bank * 0x1000 + addr as usize - 0xC000]
+            self.mem[self.bank * 0x1000 + addr as usize - 0xD000]
         }
     }
 
@@ -41,7 +41,7 @@ impl MemoryHandler for WRAM {
         if addr < 0xD000 {
             self.mem[addr as usize - 0xC000] = value;
         } else {
-            self.mem[self.bank * 0x1000 + addr as usize - 0xC000] = value;
+            self.mem[self.bank * 0x1000 + addr as usize - 0xD000] = value;
         }
     }
 }
@@ -56,12 +56,12 @@ impl WRAM {
     }
 
     pub fn write_bank(&mut self, bank: u8) {
-        if self.num_banks == 1 { return }
+        if self.num_banks == 2 { return }
         self.bank = if bank == 0 { 1 } else { bank as usize };
     }
 
     pub fn read_bank(&self) -> u8 {
-        if self.num_banks == 0 { 0xFF } else { self.bank as u8 }
+        if self.num_banks == 2 { 0xFF } else { self.bank as u8 }
     }
 }
 

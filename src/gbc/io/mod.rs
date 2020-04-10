@@ -63,7 +63,7 @@ impl IO {
             mbc: mbc::get_mbc(header, rom),
             ppu: if in_cgb { Box::new(CgbPPU::new(&sdl_ctx)) } else { Box::new(GbPPU::new(&sdl_ctx)) },
             apu: APU::new(&sdl_ctx),
-            wram: WRAM::new(if in_cgb { 8 } else { 0 }),
+            wram: WRAM::new(if in_cgb { 8 } else { 2 }),
             serial: Serial::new(),
             joypad: Joypad::new(),
             timer: Timer::new(),
