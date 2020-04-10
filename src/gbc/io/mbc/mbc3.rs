@@ -37,7 +37,7 @@ impl MBC3 {
             rom_bank: 1,
             ram_bank: 0,
             ram_enable: false,
-            external_ram: vec![0; ram_size],
+            external_ram: vec![0xFF; ram_size],
             rtc_registers: [0; 5],
             latched_rtc_registers: [0; 5],
             latch_clock_data: false,
