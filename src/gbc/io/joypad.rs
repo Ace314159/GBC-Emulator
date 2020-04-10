@@ -80,7 +80,7 @@ impl Joypad {
 impl MemoryHandler for Joypad {
     fn read(&self, addr: u16) -> u8 {
         assert_eq!(addr, 0xFF00);
-        return 0xC0 | (self.select_buttons as u8) << 5 | (self.select_dirs as u8) << 4 | self.get_bits();
+        return 0xC0 | (!self.select_buttons as u8) << 5 | (!self.select_dirs as u8) << 4 | self.get_bits();
     }
 
     fn write(&mut self, addr: u16, value: u8) {
