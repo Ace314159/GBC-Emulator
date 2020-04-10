@@ -57,7 +57,7 @@ impl WRAM {
 
     pub fn write_bank(&mut self, bank: u8) {
         if self.num_banks == 2 { return }
-        self.bank = if bank == 0 { 1 } else { bank as usize };
+        self.bank = if bank == 0 { 1 } else { bank as usize & 0x7 };
     }
 
     pub fn read_bank(&self) -> u8 {
