@@ -13,7 +13,7 @@ pub struct CgbPPU {
     bg_map_select: bool,
     obj_size: bool,
     obj_enable: bool,
-    bg_priority: bool,
+    bg_window_priority: bool,
     // Status
     enable_coincidence_int: bool,
     enable_oam_int: bool,
@@ -88,7 +88,7 @@ impl MemoryHandler for CgbPPU {
             0xFE00 ..= 0xFE9F => if self.mode < 2 && self.oam_dma_clock < 2 { self.oam[addr as usize - 0xFE00] } else { 0xFF },
             0xFF40 => shift!(lcd_enable, 7) | shift!(window_map_select, 6) | shift!(window_enable, 5) |
                       shift!(bg_window_tiles_select, 4) | shift!(bg_map_select, 3) | shift!(obj_size, 2) |
-                      shift!(obj_enable, 1) | shift!(bg_priority, 0),
+                      shift!(obj_enable, 1) | shift!(bg_window_priority, 0),
             0xFF41 => 0x80 | shift!(enable_coincidence_int, 6) | shift!(enable_oam_int, 5) | shift!(enable_vblank_int, 4) |
                       shift!(enable_hblank_int, 3) | shift!(coincidence_flag, 2) | self.mode,
             0xFF42 => self.scroll_y,
@@ -118,7 +118,7 @@ impl MemoryHandler for CgbPPU {
                 self.bg_map_select = value & (1 << 3) != 0;
                 self.obj_size = value & (1 << 2) != 0;
                 self.obj_enable = value & (1 << 1) != 0;
-                self.bg_priority = value & (1 << 0) != 0;
+                self.bg_window_priority = value & (1 << 0) != 0;
                 self.lcd_was_off = !old_lcd_enable && self.lcd_enable; // TODO: Add full support later
                 if self.lcd_was_off {
                     self.mode = 0;
@@ -330,7 +330,7 @@ impl CgbPPU {
             bg_map_select: false,
             obj_size: false,
             obj_enable: false,
-            bg_priority: false,
+            bg_window_priority: false,
             // Status
             enable_coincidence_int: false,
             enable_oam_int: false,
@@ -575,7 +575,7 @@ impl CgbPPU {
                             let obj_color = (high << 1 | low) as usize;
                             if obj_color != 0 {
                                 let obj_color = self.obj_colors[palette_num][obj_color];
-                                if obj_priority {
+                                if obj_priority && self.bg_window_priority {
                                     if bg_color == 0 {
                                         final_color = obj_color;
                                     }
