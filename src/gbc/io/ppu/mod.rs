@@ -14,6 +14,7 @@ pub trait PPU: MemoryHandler {
 
     fn read_vram_bank(&self) -> u8;
     fn read_cgb_palettes(&self, addr: u16) -> u8;
+    fn read_hdma(&self) -> u8;
 
     fn write_vram_bank(&mut self, value: u8);
     fn write_cgb_palettes(&mut self, addr: u16, value: u8);
@@ -27,6 +28,9 @@ pub trait PPU: MemoryHandler {
 
     fn in_gdma(&self) -> bool;
     fn gdma(&mut self, double_speed: bool) -> (bool, u16, u16);
+
+    fn in_hdma(&self) -> bool;
+    fn hdma(&mut self, double_speed: bool) -> (bool, u16, u16);
 
     fn _rendering_map(&mut self, _rendering_map: bool);
 }

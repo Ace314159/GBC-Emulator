@@ -47,6 +47,8 @@ pub struct CgbPPU {
     // HDMA
     hdma_src: u16,
     hdma_dest: u16,
+    hdma_started: bool,
+    num_dma_blocks: u8,
     
     // Rendering
     // BG
@@ -60,8 +62,8 @@ pub struct CgbPPU {
     oam_dma_clock: u16,
     disable_oam: bool,
     gdma_clock: u16,
-    in_hdma: bool,
     hdma_clock: u16,
+    hdma_finished_line: bool,
     visible_sprites: [u8; 4 * 20], // Stores x, tile num, and attributes
     visible_sprite_count: usize,
     current_sprite_i: usize,
@@ -134,7 +136,7 @@ impl MemoryHandler for CgbPPU {
             },
             0xFF42 => self.scroll_y = value,
             0xFF43 => self.scroll_x = value,
-            0xFF44 => {},
+            0xFF44 => self.y_coord = 0,
             0xFF45 => {
                 self.y_coord_comp = value;
                 if self.lcd_enable {
@@ -202,6 +204,10 @@ impl PPU for CgbPPU {
         }
     }
 
+    fn read_hdma(&self) -> u8 {
+        self.num_dma_blocks
+    }
+
     fn write_vram_bank(&mut self, value: u8) {
         self.vram_bank = value as usize & 0x1;
     }
@@ -265,14 +271,18 @@ impl PPU for CgbPPU {
             0xFF52 => self.hdma_src = self.hdma_src & !0x00FF | (value & 0x0F) as u16,
             0xFF53 => self.hdma_dest = self.hdma_dest & !0xFF00 | ((value & 0x1F) as u16) << 8,
             0xFF54 => self.hdma_dest = self.hdma_dest & !0x00FF | (value & 0xF0) as u16,
-            0xFF55 => if value & 0x80 != 0 {
-                self.in_hdma = true;
-            } else {
-                let num_dma_blocks = (value & 0x7F) + 1;
-                self.hdma_src &= 0xFFF0;
-                self.hdma_dest &= 0x1FF0;
-                self.gdma_clock = 1 + num_dma_blocks as u16 * if double_speed { 16 } else { 8 };
-            }
+            0xFF55 => {
+                self.num_dma_blocks = value & 0x7F;
+                if value & 0x80 != 0 {
+                    self.hdma_started = true;
+                    self.hdma_clock = 1 + if double_speed { 16 } else { 8 };
+                } else {
+                    if !self.hdma_started {
+                        self.gdma_clock = 1 + (self.num_dma_blocks + 1) as u16 * if double_speed { 16 } else { 8 };
+                    }
+                    self.hdma_started = false;
+                }
+            },
             _ => panic!("Unexpected Address for PPU!"),
         }
     }
@@ -306,6 +316,32 @@ impl PPU for CgbPPU {
         self.oam[addr as usize] = value;
     }
 
+    fn in_hdma(&self) -> bool {
+        self.mode == 0 && self.hdma_started && !self.hdma_finished_line
+    }
+
+    fn hdma(&mut self, double_speed: bool) -> (bool, u16, u16) {
+        self.hdma_clock -= 1;
+        if self.hdma_clock != 0 {
+            let inc = if double_speed { 1 } else { 2 };
+            let cpu_addr = self.hdma_src;
+            let vram_addr = 0x8000 | self.hdma_dest;
+            self.hdma_src += inc;
+            self.hdma_dest += inc;
+            (true, cpu_addr, vram_addr)
+        } else {
+            if self.num_dma_blocks != 0 {
+                self.hdma_clock = 1 + if double_speed { 16 } else { 8 };
+                self.num_dma_blocks -= 1;
+            } else {
+                self.hdma_started = false;
+                self.num_dma_blocks = 0xFF;
+            }
+            self.hdma_finished_line = true;
+            (false, 0, 0)
+        }
+    }
+
     fn in_gdma(&self) -> bool {
         self.gdma_clock != 0
     }
@@ -319,7 +355,10 @@ impl PPU for CgbPPU {
             self.hdma_src += inc;
             self.hdma_dest += inc;
             (true, cpu_addr, vram_addr)
-        } else { (false, 0, 0) }
+        } else {
+            self.num_dma_blocks = 0xFF;
+            (false, 0, 0)
+        }
     }
 
     fn _rendering_map(&mut self, _rendering_map: bool) { self._rendering_map = _rendering_map }
@@ -371,7 +410,9 @@ impl CgbPPU {
             // HDMA
             hdma_src: 0,
             hdma_dest: 0,
-
+            hdma_started: false,
+            num_dma_blocks: 0,
+            
             // Rendering
             // BG
             clock_num: 0,
@@ -384,8 +425,8 @@ impl CgbPPU {
             oam_dma_clock: 0,
             disable_oam: false,
             gdma_clock: 0,
-            in_hdma: false,
             hdma_clock: 0,
+            hdma_finished_line: false,
             visible_sprites: [0; 4 * 20],
             visible_sprite_count: 0,
             current_sprite_i: 0,
@@ -433,6 +474,7 @@ impl CgbPPU {
                         self.mode = 3;
                         self.render_line();
                     } else if self.clock_num == self.hblank_clock {
+                        self.hdma_finished_line = false;
                         self.mode = 0;
                         if self.enable_hblank_int { self.hblank_int = true; }
                     }
@@ -500,7 +542,7 @@ impl CgbPPU {
         else if self._rendered_map {for i in self.screen.pixels.iter_mut() { *i = 0 }; self._rendered_map = false; }
         fn bg_window_tiles_select_1(tile_num: u8) -> usize { (0x900u16.wrapping_add(tile_num as i8 as u16) << 4) as usize }
         fn bg_window_tiles_select_0(tile_num: u8) -> usize { 0x8000 + ((tile_num as usize) << 4) }
-        self.hblank_clock = 254 + self.scroll_x as u16 % 8;
+        self.hblank_clock = 255 + self.scroll_x as u16 % 8;
         let bg_map_offset: u16 = if self.bg_map_select { 0x9C00 } else { 0x9800 };
         let window_map_offset: u16 = if self.window_map_select { 0x9C00 } else { 0x9800 };
         let get_bg_window_tile = if self.bg_window_tiles_select {

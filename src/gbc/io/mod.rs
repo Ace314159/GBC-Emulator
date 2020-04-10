@@ -47,11 +47,13 @@ pub struct IO {
     double_speed: bool,
     prepare_speed_switch: bool,
     in_gdma: bool,
+    in_hdma: bool,
 
     // Other
     pub sdl_ctx: sdl2::Sdl,
     pub c: u128,
     pub should_close: bool,
+    pub p: bool,
 }
 
 impl IO {
@@ -77,10 +79,12 @@ impl IO {
             double_speed: false,
             prepare_speed_switch: false,
             in_gdma: false,
+            in_hdma: false,
 
             sdl_ctx,
             c: 8,
             should_close: false,
+            p: false,
         }
     }
 
@@ -100,6 +104,7 @@ impl IO {
             0xFF40 ..= 0xFF4B => self.ppu.read(addr),
             0xFF4D => if self.in_cgb { 0x7E | (self.double_speed as u8) << 7 | self.prepare_speed_switch as u8 } else { 0xFF },
             0xFF4F => self.ppu.read_vram_bank(),
+            0xFF55 => self.ppu.read_hdma(),
             0xFF68 ..= 0xFF6B => self.ppu.read_cgb_palettes(addr),
             0xFF70 => self.wram.read_bank(),
             0xFF80 ..= 0xFFFE => self.hram.read(addr),
@@ -137,6 +142,7 @@ impl IO {
         self.c += 4;
         self.int_flags |= self.timer.emulate();
         self.oam_dma();
+        self.hdma();
         self.gdma();
         self.int_flags |= self.ppu.emulate_clock();
         self.int_flags |= self.ppu.emulate_clock();
@@ -154,10 +160,12 @@ impl IO {
                     },
                     Event::Window { win_event: WindowEvent::Resized(width, height), .. } => {
                         self.ppu.set_screen_size(width, height)}
-                    /*Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::LCtrl), .. } => {
+                    Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::LCtrl), .. } => {
                         self.ppu._rendering_map(true) },
-                    Event::KeyUp { keycode: Some(sdl2::keyboard::Keycode::LCtrl), .. } => {
+                    /*Event::KeyUp { keycode: Some(sdl2::keyboard::Keycode::LCtrl), .. } => {
                         self.ppu._rendering_map(false) },*/
+                    /*Event::KeyUp { keycode: Some(sdl2::keyboard::Keycode::LShift), .. } => {
+                        self.p = false },*/
                     Event::KeyDown {..} => { keyboard_events.push(event) },
                     Event::KeyUp {..} => { keyboard_events.push(event) },
                     _ => {},
@@ -210,11 +218,27 @@ impl IO {
             if should_write {
                 self.write(vram_addr, self.read(cpu_addr));
                 if self.double_speed {
-                    self.write(vram_addr + 1, self.read(cpu_addr))
+                    self.write(vram_addr + 1, self.read(cpu_addr + 1))
                 }
             }
             self.emulate_machine_cycle();
             self.in_gdma = self.ppu.in_gdma();
+        }
+    }
+
+    fn hdma(&mut self) {
+        if self.in_hdma { return }
+        self.in_hdma = self.ppu.in_hdma();
+        while self.in_hdma {
+            let (should_write, cpu_addr, vram_addr) = self.ppu.hdma(self.double_speed);
+            if should_write {
+                self.write(vram_addr, self.read(cpu_addr));
+                if !self.double_speed {
+                    self.write(vram_addr + 1, self.read(cpu_addr + 1));
+                }
+            }
+            self.emulate_machine_cycle();
+            self.in_hdma = self.ppu.in_hdma();
         }
     }
 
