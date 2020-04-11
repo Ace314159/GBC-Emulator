@@ -11,7 +11,7 @@ pub struct CgbPPU {
     window_enable: bool,
     bg_window_tiles_select: bool,
     bg_map_select: bool,
-    obj_size: bool,
+    is8x16: bool,
     obj_enable: bool,
     bg_window_priority: bool,
     // Status
@@ -90,7 +90,7 @@ impl MemoryHandler for CgbPPU {
             0x8000 ..= 0x9FFF => if self.mode != 3 { self.vram[self.vram_bank][addr as usize - 0x8000] } else { 0xFF },
             0xFE00 ..= 0xFE9F => if self.mode < 2 && self.oam_dma_clock < 2 { self.oam[addr as usize - 0xFE00] } else { 0xFF },
             0xFF40 => shift!(lcd_enable, 7) | shift!(window_map_select, 6) | shift!(window_enable, 5) |
-                      shift!(bg_window_tiles_select, 4) | shift!(bg_map_select, 3) | shift!(obj_size, 2) |
+                      shift!(bg_window_tiles_select, 4) | shift!(bg_map_select, 3) | shift!(is8x16, 2) |
                       shift!(obj_enable, 1) | shift!(bg_window_priority, 0),
             0xFF41 => 0x80 | shift!(enable_coincidence_int, 6) | shift!(enable_oam_int, 5) | shift!(enable_vblank_int, 4) |
                       shift!(enable_hblank_int, 3) | shift!(coincidence_flag, 2) | self.mode,
@@ -119,7 +119,7 @@ impl MemoryHandler for CgbPPU {
                 self.window_enable = value & (1 << 5) != 0;
                 self.bg_window_tiles_select = value & (1 << 4) != 0;
                 self.bg_map_select = value & (1 << 3) != 0;
-                self.obj_size = value & (1 << 2) != 0;
+                self.is8x16 = value & (1 << 2) != 0;
                 self.obj_enable = value & (1 << 1) != 0;
                 self.bg_window_priority = value & (1 << 0) != 0;
                 self.lcd_was_off = !old_lcd_enable && self.lcd_enable; // TODO: Add full support later
@@ -374,7 +374,7 @@ impl CgbPPU {
             window_enable: false,
             bg_window_tiles_select: true,
             bg_map_select: false,
-            obj_size: false,
+            is8x16: false,
             obj_enable: false,
             bg_window_priority: false,
             // Status
@@ -517,7 +517,7 @@ impl CgbPPU {
         self.visible_sprite_count = 0;
         if !self.obj_enable { return }
         let mut oam_addr = 0usize;
-        let sprite_height = if self.obj_size { 16 } else { 8 };
+        let sprite_height = if self.is8x16 { 16 } else { 8 };
         let mut visible_sprite_xs: Vec<[usize; 2]> = Vec::new();
         while self.visible_sprite_count < 10 && oam_addr < self.oam.len() {
             let y = self.oam[oam_addr];
@@ -549,6 +549,7 @@ impl CgbPPU {
             bg_window_tiles_select_0
         } else { bg_window_tiles_select_1 };
         let offsetted_y = self.y_coord.wrapping_add(self.scroll_y) as u16;
+        let sprite_height = if self.is8x16 { 16 } else { 8 };
         self.current_sprite_i = 0;
         for x in 0u8..160u8 {
             let pixel_index = 3 * ((Screen::HEIGHT - 1 - self.y_coord as u32) * Screen::WIDTH + x as u32) as usize;
@@ -603,12 +604,12 @@ impl CgbPPU {
                             let flip_y = attrs & 0x40 != 0;
                             let flip_x = attrs & 0x20 != 0;
                             let tile_addr = (0x8000 | (tile_num as u16) << 4) as usize;
-        
-                            let vram_bank = (attrs & 0x08 != 0) as usize;
+
+                            let vram_bank = (attrs as usize >> 3) & 0x1;
                             let tile_addr = if flip_y {
-                                tile_addr + 2 * (sprite_y - self.y_coord - 1) as usize
+                                tile_addr + 2 * (sprite_height + sprite_y - 17 - self.y_coord) as usize
                             } else {
-                                tile_addr + 2 * (15 - (sprite_y - self.y_coord - 1)) as usize
+                                tile_addr + 2 * (self.y_coord + 16 - sprite_y) as usize
                             };
                             
                             let tile_lows: u8 = self.vram[vram_bank][tile_addr - 0x8000];
